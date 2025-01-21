@@ -6,6 +6,8 @@ import 'package:new_ledger_1/colors.dart';
 import 'package:new_ledger_1/home.dart';
 import 'package:new_ledger_1/sharedpreferences.dart';
 
+import 'forgot_password.dart';
+
 class LoginPage extends StatefulWidget {
   @override
   _LoginPageState createState() => _LoginPageState();
@@ -16,7 +18,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final SharedPreferenceHelper spHelper = SharedPreferenceHelper();
-  bool _passwordVisible = false; // State for password visibility
+  bool _passwordVisible = false;
 
   void _login() async {
     try {
@@ -46,6 +48,8 @@ class _LoginPageState extends State<LoginPage> {
       ));
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +85,7 @@ class _LoginPageState extends State<LoginPage> {
             SizedBox(height: 20),
             TextField(
               controller: _passwordController,
-              obscureText: !_passwordVisible, // Toggles password visibility
+              obscureText: !_passwordVisible,
               decoration: InputDecoration(
                 labelText: 'Password',
                 prefixIcon: Icon(Icons.lock, color: themecolor),
@@ -113,6 +117,20 @@ class _LoginPageState extends State<LoginPage> {
               ),
               child: Text('Login', style: TextStyle(fontSize: 18, color: Colors.white)),
             ),
+            SizedBox(height: 10),
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ForgotPasswordPage()),
+                );
+              },
+              child: Text(
+                'Forgot Password?',
+                style: TextStyle(color: themecolor, fontSize: 16),
+              ),
+            ),
+
             SizedBox(height: 10),
             TextButton(
               onPressed: () {

@@ -136,9 +136,9 @@ class _HomeState extends State<Home> {
                 ),
               ),
               GestureDetector(
-                // onTap: () {
-                //   Navigator.push(context, MaterialPageRoute(builder: (context)=>Settings()));
-                // },
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context)=>AppSettings()));
+                },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 5.0),
                   child: Icon(Icons.settings, color: Colors.white),
