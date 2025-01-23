@@ -5,8 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:new_ledger_1/transaction_search.dart';
 
 import '../account_data.dart';
-import '../settings.dart';
-import '../sharedpreferences.dart'; // For date formatting
+import '../Settings/settings.dart';
+import '../SharedPref/sharedpreferences.dart'; // For date formatting
 
 
 

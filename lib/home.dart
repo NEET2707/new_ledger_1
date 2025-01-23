@@ -1,14 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
-import 'package:new_ledger_1/authentication/profile.dart';
-import 'package:new_ledger_1/settings.dart';
+import 'package:new_ledger_1/Settings/settings.dart';
+import 'Settings/change_currency_page.dart';
 import 'reminder.dart';
 import 'account_data.dart';
 import 'ADD/add_transaction.dart';
 import 'ADD/add_account.dart';
-import 'colors.dart';
 
 // Account table field names
 
@@ -27,16 +27,113 @@ class _HomeState extends State<Home> {
   bool isLoading = true;
   Map<String, dynamic>? userData;
   late String user_id;
+  // Contact? _contact;
 
+  String a = "";
+  String b = "";
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  List<Contact>? contacts;
+  get nextId => null;
 
   @override
   void initState() {
     super.initState();
     _fetchUserData(); // Fetch user data
-    calculateTotals(); // Calculate totals
+    calculateTotals();
+    _checkAndFetchContacts();
   }
+
+  Future<void> _checkAndFetchContacts() async {
+    if (await FlutterContacts.requestPermission()) {
+      final fetchedContacts = await FlutterContacts.getContacts(withProperties: true);
+      setState(() {
+        contacts = fetchedContacts as List<Contact>?;
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Permission to access contacts was denied")),
+      );
+    }
+  }
+
+  Future<int> getNextId() async {
+    try {
+      var querySnapshot = await FirebaseFirestore.instance
+          .collection(textlink.tblAccount)
+          .orderBy(textlink.accountId, descending: true)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        return querySnapshot.docs.first[textlink.accountId] + 1;
+      } else {
+        return 1;
+      }
+    } catch (e) {
+      print('Error fetching data: $e');
+      return -1; // Return a safe fallback value in case of error
+    }
+  }
+
+  addData(String PaccountName, String PaccountContact, String PaccountEmail, String PaccountDescription) async {
+    if (PaccountName.isEmpty || PaccountContact.isEmpty) {
+      print("Enter required fields");
+      return;
+    }
+
+    int nextId = await getNextId();
+    User? user = FirebaseAuth.instance.currentUser;  // Get the current user
+
+    if (user != null) {
+      await FirebaseFirestore.instance.collection(textlink.tblAccount).doc(nextId.toString()).set({
+        textlink.accountName: PaccountName,
+        textlink.accountContact: PaccountContact,
+        textlink.accountId: nextId,
+        textlink.accountEmail: PaccountEmail ?? "",
+        textlink.accountDescription: PaccountDescription ?? "",
+        'userId': user.uid,
+      });
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AccountData(name: PaccountName, id: nextId, num: PaccountContact),
+        ),
+      );
+    } else {
+      print("User not logged in");
+    }
+  }
+
+  Future<void> _showContacts() async {
+    if (await FlutterContacts.requestPermission()) {
+      final contact = await FlutterContacts.openExternalPick(); // Opens the native contacts app
+      if (contact != null && contact.phones.isNotEmpty) {
+        // Extract the contact's display name and first phone number
+        a = contact.displayName;
+        b = contact.phones.first.number;
+
+        // Call your addData function with the contact's details
+        addData(a, b, "", "");
+
+        print('Selected Contact: $a, $b'); // Debugging
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Selected: ${a}, ${b}')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("No phone number found for the selected contact.")),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Permission to access contacts was denied.")),
+      );
+    }
+  }
+
+
 
   // Fetch user data from Firestore
   Future<void> _fetchUserData() async {
@@ -63,38 +160,76 @@ class _HomeState extends State<Home> {
     double creditSum = 0.0;
     double debitSum = 0.0;
 
-    final accountSnapshot = await FirebaseFirestore.instance.collection(textlink.tblAccount).get();
-
-    for (var account in accountSnapshot.docs) {
-      final accountId = account[textlink.accountId];
-      final transactionSnapshot = await FirebaseFirestore.instance
-          .collection(textlink.tbltransaction)
-          .where(textlink.transactionAccountId, isEqualTo: accountId)
-          .where("user_id", isEqualTo: user_id)
+    try {
+      final accountSnapshot = await FirebaseFirestore.instance
+          .collection(textlink.tblAccount)
           .get();
 
-      for (var transaction in transactionSnapshot.docs) {
-        double amount = double.parse(transaction[textlink.transactionAmount].toString());
-        bool isCredit = transaction[textlink.transactionIsCredited] ?? false;
+      for (var account in accountSnapshot.docs) {
+        print('Account Data: ${account.data()}'); // Debugging log
 
-        if (isCredit) {
-          creditSum += amount;
+        if (account.data().containsKey('account_id')) {
+          final accountId = account['account_id'];
+
+          final transactionSnapshot = await FirebaseFirestore.instance
+              .collection(textlink.tbltransaction)
+              .where(textlink.transactionAccountId, isEqualTo: accountId)
+              .where("user_id", isEqualTo: user_id)
+              .get();
+
+          for (var transaction in transactionSnapshot.docs) {
+            double amount = double.parse(transaction[textlink.transactionAmount].toString());
+            bool isCredit = transaction[textlink.transactionIsCredited] ?? false;
+
+            if (isCredit) {
+              creditSum += amount;
+            } else {
+              debitSum += amount;
+            }
+          }
         } else {
-          debitSum += amount;
+          print('Missing account_id in account document: ${account.id}');
         }
       }
-    }
 
+      setState(() {
+        totalCredit = creditSum;
+        totalDebit = debitSum;
+        totalAccountBalance = creditSum - debitSum;
+        isLoading = false; // Stop loading
+      });
+    } catch (e) {
+      print('Error calculating totals: $e');
+      setState(() {
+        isLoading = false; // Stop loading in case of error
+      });
+    }
+  }
+
+
+  void _navigateToSecondPage() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => AppSettings()),
+    );
+
+    if (result == true) {
+      _reloadPage();
+    }
+  }
+
+  void _reloadPage() {
     setState(() {
-      totalCredit = creditSum;
-      totalDebit = debitSum;
-      totalAccountBalance = creditSum - debitSum;
-      isLoading = false; // Stop loading
+      // Add your reload logic here
+      print('Page reloaded');
     });
   }
 
   @override
   Widget build(BuildContext context) {
+
+    print(a);
+    print(b);
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -122,35 +257,23 @@ class _HomeState extends State<Home> {
                   Navigator.push(context, MaterialPageRoute(builder: (context)=>Reminder()));
                 },
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
                   child: Icon(Icons.notification_add, color: Colors.white),
                 ),
               ),
               GestureDetector(
-                // onTap: (){
-                //   Navigator.push(context, MaterialPageRoute(builder: (context)=>Reminder()));
-                // },
+                onTap: _showContacts,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
                   child: Icon(Icons.contact_page, color: Colors.white),
                 ),
               ),
               GestureDetector(
                 onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context)=>AppSettings()));
-                },
+                  _navigateToSecondPage();                },
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
                   child: Icon(Icons.settings, color: Colors.white),
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context)=>Profile()));
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5.0),
-                  child: Icon(Icons.person, color: Colors.white),
                 ),
               ),
             ],
@@ -192,258 +315,262 @@ class _HomeState extends State<Home> {
               if (result != null && result == true) {
                 calculateTotals(); // Recalculate totals after adding an account
               }
-            },
+            }
           ),
         ],
       ),
       body: Column(
         children: [
-          // Display total credit, debit, and balance under "Current A/C"
-          Container(
-            color: Colors.blueAccent,
-            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  "Current A/C:",
-                  style: TextStyle(fontSize: 16, color: Colors.white),
+      // child: Text(
+      // _contact != null
+      // ? 'Selected Contact: ${_contact!.fullName} (${_contact!.phoneNumber?.number})'
+      //     : 'No contact selected',
+        // Display total credit, debit, and balance under "Current A/C"
+        Container(
+          color: Colors.blueAccent,
+          padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                "Current A/C:",
+                style: TextStyle(fontSize: 16, color: Colors.white),
+              ),
+              SizedBox(height: 4),
+              Text(
+                "${CurrencyManager.cr} ${totalAccountBalance.toStringAsFixed(2)}",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
-                SizedBox(height: 4),
-                Text(
-                  "₹ ${totalAccountBalance.toStringAsFixed(2)}",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildSummaryItem(Icons.arrow_upward_rounded, "₹ ${totalCredit.toStringAsFixed(2)} Credit", Colors.green),
-                    _buildSummaryItem(Icons.arrow_downward_rounded, "₹ ${totalDebit.toStringAsFixed(2)} Debit", Colors.red),
-                  ],
-                ),
-              ],
-            ),
+              ),
+              SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildSummaryItem(Icons.arrow_upward_rounded, "${CurrencyManager.cr} ${totalCredit.toStringAsFixed(2)} Credit", Colors.green),
+                  _buildSummaryItem(Icons.arrow_downward_rounded, "${CurrencyManager.cr} ${totalDebit.toStringAsFixed(2)} Debit", Colors.red),
+                ],
+              ),
+            ],
           ),
-          // Tabs for ALL, CREDIT, and DEBIT
-          Container(
-            color: Colors.blueAccent,
-            child: Row(
-              children: [
-                _buildTabButton("ALL", selectedTab == "ALL"),
-                _buildTabButton("CREDIT", selectedTab == "CREDIT"),
-                _buildTabButton("DEBIT", selectedTab == "DEBIT"),
-              ],
-            ),
+        ),
+        // Tabs for ALL, CREDIT, and DEBIT
+        Container(
+          color: Colors.blueAccent,
+          child: Row(
+            children: [
+              _buildTabButton("ALL", selectedTab == "ALL"),
+              _buildTabButton("CREDIT", selectedTab == "CREDIT"),
+              _buildTabButton("DEBIT", selectedTab == "DEBIT"),
+            ],
           ),
-          Expanded(
-            child: isLoading // Show loading indicator while data is being fetched
-                ? Center(child: CircularProgressIndicator())
-                : StreamBuilder(
-              stream: FirebaseFirestore.instance
-                  .collection(textlink.tblAccount)
-                  .where("userId", isEqualTo: _auth.currentUser?.uid) // Filter by uid
-                  .snapshots(),
-              builder: (context, accountSnapshot) {
-                print(accountSnapshot.connectionState);
-                if (accountSnapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                }
+        ),
+        Expanded(
+          child: isLoading // Show loading indicator while data is being fetched
+              ? Center(child: CircularProgressIndicator())
+              : StreamBuilder(
+            stream: FirebaseFirestore.instance
+                .collection(textlink.tblAccount)
+                .where("userId", isEqualTo: _auth.currentUser?.uid) // Filter by uid
+                .snapshots(),
+            builder: (context, accountSnapshot) {
+              print(accountSnapshot.connectionState);
+              if (accountSnapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
+              }
 
-                if (!accountSnapshot.hasData || accountSnapshot.data!.docs.isEmpty) {
-                  return Center(child: Text("No accounts available."));
-                }
+              if (!accountSnapshot.hasData || accountSnapshot.data!.docs.isEmpty) {
+                return Center(child: Text("No accounts available."));
+              }
 
-                final accounts = accountSnapshot.data!.docs;
-                if(accountSnapshot.hasData){
-                  return ListView.separated(
-                    itemCount: accounts.length,
-                    itemBuilder: (context, index) {
+              final accounts = accountSnapshot.data!.docs;
+              if(accountSnapshot.hasData){
+                return ListView.separated(
+                  itemCount: accounts.length,
+                  itemBuilder: (context, index) {
 
-                      final account = accounts[index];
+                    final account = accounts[index];
 
-                      final accountId = account[textlink.accountId];
-                      print(accountId);
-                      final accountName = account[textlink.accountName];
-                      final accountContact = account[textlink.accountContact];
+                    final accountId = account[textlink.accountId];
+                    print(accountId);
+                    final accountName = account[textlink.accountName];
+                    final accountContact = account[textlink.accountContact];
 
-                      return StreamBuilder(
-                        stream: FirebaseFirestore.instance
-                            .collection(textlink.tbltransaction)
-                            .where("user_id", isEqualTo: _auth.currentUser?.uid)
-                            .where(textlink.accountId, isEqualTo: accountId) // Filter by uid
-                            .snapshots(),
-                        builder: (context, transactionSnapshot) {
-                          if (transactionSnapshot.connectionState == ConnectionState.waiting) {
-                            return ListTile(title: Text("Loading..."));
-                          }
-                          final transactions = transactionSnapshot.data?.docs ?? [];
-                          double creditSum = 0.0;
-                          double debitSum = 0.0;
+                    return StreamBuilder(
+                      stream: FirebaseFirestore.instance
+                          .collection(textlink.tbltransaction)
+                          .where("user_id", isEqualTo: _auth.currentUser?.uid)
+                          .where(textlink.accountId, isEqualTo: accountId) // Filter by uid
+                          .snapshots(),
+                      builder: (context, transactionSnapshot) {
+                        if (transactionSnapshot.connectionState == ConnectionState.waiting) {
+                          return ListTile(title: Text("Loading..."));
+                        }
+                        final transactions = transactionSnapshot.data?.docs ?? [];
+                        double creditSum = 0.0;
+                        double debitSum = 0.0;
 
-                          for (var transaction in transactions) {
-                            print("Transaction Data: ${transaction.data()}");
-                            double amount = double.parse(transaction[textlink.transactionAmount].toString());
-                            bool isCredit = transaction[textlink.transactionIsCredited] ?? false;
-                            print("Amount: $amount, Is Credit: $isCredit");
+                        for (var transaction in transactions) {
+                          print("Transaction Data: ${transaction.data()}");
+                          double amount = double.parse(transaction[textlink.transactionAmount].toString());
+                          bool isCredit = transaction[textlink.transactionIsCredited] ?? false;
+                          print("Amount: $amount, Is Credit: $isCredit");
 
-                            if (selectedTab == "ALL" ||
-                                (selectedTab == "CREDIT" && isCredit) ||
-                                (selectedTab == "DEBIT" && !isCredit)) {
-                              if (isCredit) {
-                                creditSum += amount;
-                              } else {
-                                debitSum += amount;
-                              }
-                              // print("Account Name: $accountName");
-                              // print("Credit Sum: $creditSum, Debit Sum: $debitSum, Account Balance: ");
+                          if (selectedTab == "ALL" ||
+                              (selectedTab == "CREDIT" && isCredit) ||
+                              (selectedTab == "DEBIT" && !isCredit)) {
+                            if (isCredit) {
+                              creditSum += amount;
+                            } else {
+                              debitSum += amount;
                             }
+                            // print("Account Name: $accountName");
+                            // print("Credit Sum: ${CurrencyManager.cr}editSum, Debit Sum: $debitSum, Account Balance: ");
                           }
+                        }
 
-                          double accountBalance = creditSum - debitSum;
-                          // print('Credit: $creditSum, Debit: $debitSum, Account Balance: $accountBalance');
+                        double accountBalance = creditSum - debitSum;
+                        // print('Credit: ${CurrencyManager.cr}editSum, Debit: $debitSum, Account Balance: $accountBalance');
 
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                            leading: CircleAvatar(
-                              backgroundColor: accountBalance >= 0 ? Colors.green : Colors.red,
-                              child: Text(
-                                accountName[0].toUpperCase(),
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                          leading: CircleAvatar(
+                            backgroundColor: accountBalance >= 0 ? Colors.green : Colors.red,
+                            child: Text(
+                              accountName[0].toUpperCase(),
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          title: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                accountName,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
-                            ),
-                            title: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  accountName,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              Text(
+                                "${CurrencyManager.cr} ${accountBalance.toStringAsFixed(2)}",
+                                style: TextStyle(
+                                  color: accountBalance >= 0 ? Colors.green : Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
                                 ),
-                                Text(
-                                  "₹ ${accountBalance.toStringAsFixed(2)}",
-                                  style: TextStyle(
-                                    color: accountBalance >= 0 ? Colors.green : Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            subtitle: Text(accountContact),
-                            trailing: PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert),
-                              onSelected: (value) async {
-                                if (value == 'edit') {
-                                  final shouldRefresh = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => AddAccount(
-                                        name: accountName,
-                                        contact: accountContact,
-                                        id: accountId.toString(),
-                                        email: account[textlink.accountEmail],
-                                        description: account[textlink.accountDescription],
-                                      ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Text(accountContact),
+                          trailing: PopupMenuButton<String>(
+                            icon: const Icon(Icons.more_vert),
+                            onSelected: (value) async {
+                              if (value == 'edit') {
+                                final shouldRefresh = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => AddAccount(
+                                      name: accountName,
+                                      contact: accountContact,
+                                      id: accountId.toString(),
+                                      email: account[textlink.accountEmail],
+                                      description: account[textlink.accountDescription],
                                     ),
-                                  );
+                                  ),
+                                );
 
-                                  if (shouldRefresh == true) {
-                                    setState(() {}); // Refresh account list after editing
-                                    calculateTotals(); // Recalculate totals after editing
-                                  }
-                                } else if (value == 'delete') {
-                                  final shouldDelete = await showDialog<bool>(
-                                    context: context,
-                                    builder: (BuildContext context) {
-                                      return AlertDialog(
-                                        title: const Text('Confirm Delete'),
-                                        content: const Text('Are you sure you want to delete this account?'),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.of(context).pop(false),
-                                            child: const Text('Cancel'),
-                                          ),
-                                          TextButton(
-                                            onPressed: () => Navigator.of(context).pop(true),
-                                            child: const Text('Delete'),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  );
-
-                                  if (shouldDelete == true) {
-                                    await FirebaseFirestore.instance
-                                        .collection(textlink.tblAccount)
-                                        .doc(accountId.toString())
-                                        .delete();
-
-                                    setState(() {}); // Refresh account list after deletion
-                                    calculateTotals(); // Recalculate totals after deletion
-                                  }
+                                if (shouldRefresh == true) {
+                                  setState(() {}); // Refresh account list after editing
+                                  calculateTotals(); // Recalculate totals after editing
                                 }
-                              },
-                              itemBuilder: (BuildContext context) => [
-                                PopupMenuItem(
-                                  value: 'edit',
-                                  child: Row(
-                                    children: const [
-                                      Icon(Icons.edit, color: Colors.blue),
-                                      SizedBox(width: 8),
-                                      Text('Edit', style: TextStyle(fontSize: 16)),
-                                    ],
-                                  ),
-                                ),
-                                PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: const [
-                                      Icon(Icons.delete, color: Colors.red),
-                                      SizedBox(width: 8),
-                                      Text('Delete', style: TextStyle(fontSize: 16)),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 4,
-                            ),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => AccountData(
-                                    name: accountName,
-                                    id: accountId,
-                                    num: accountContact,
-                                  ),
-                                ),
-                              );
+                              } else if (value == 'delete') {
+                                final shouldDelete = await showDialog<bool>(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return AlertDialog(
+                                      title: const Text('Confirm Delete'),
+                                      content: const Text('Are you sure you want to delete this account?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.of(context).pop(false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.of(context).pop(true),
+                                          child: const Text('Delete'),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+
+                                if (shouldDelete == true) {
+                                  await FirebaseFirestore.instance
+                                      .collection(textlink.tblAccount)
+                                      .doc(accountId.toString())
+                                      .delete();
+
+                                  setState(() {}); // Refresh account list after deletion
+                                  calculateTotals(); // Recalculate totals after deletion
+                                }
+                              }
                             },
-                          );
-                        },
-                      );
-                    },
-                    separatorBuilder: (context, index) => Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Divider(
-                        color: Colors.grey,
-                        height: 1,
-                      ),
+                            itemBuilder: (BuildContext context) => [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: const [
+                                    Icon(Icons.edit, color: Colors.blue),
+                                    SizedBox(width: 8),
+                                    Text('Edit', style: TextStyle(fontSize: 16)),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: const [
+                                    Icon(Icons.delete, color: Colors.red),
+                                    SizedBox(width: 8),
+                                    Text('Delete', style: TextStyle(fontSize: 16)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 4,
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AccountData(
+                                  name: accountName,
+                                  id: accountId,
+                                  num: accountContact,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                  separatorBuilder: (context, index) => Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Divider(
+                      color: Colors.grey,
+                      height: 1,
                     ),
-                  );
-                }else {
-                  return Container(child: Text("No data"),);
-                }
-              },
-            ),
+                  ),
+                );
+              }else {
+                return Container(child: Text("No data"),);
+              }
+            },
           ),
+        ),
         ],
       ),
     );
@@ -502,7 +629,5 @@ class _HomeState extends State<Home> {
     );
   }
 }
-
-
 
 

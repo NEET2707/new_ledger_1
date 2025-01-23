@@ -1,8 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:new_ledger_1/settings.dart';
+import 'package:new_ledger_1/Settings/settings.dart';
 import 'package:new_ledger_1/transaction_search.dart';
 import 'ADD/add_transaction.dart';
+import 'Settings/change_currency_page.dart';
 import 'colors.dart';
 
 
@@ -161,7 +162,7 @@ class _AccountDataState extends State<AccountData> with TickerProviderStateMixin
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    "₹ ${accountBalance.toStringAsFixed(2)}",
+                    "${CurrencyManager.cr} ${accountBalance.toStringAsFixed(2)}",
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
@@ -189,7 +190,7 @@ class _AccountDataState extends State<AccountData> with TickerProviderStateMixin
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            "₹ ${totalCredit.toStringAsFixed(2)} Credit",
+                            "${CurrencyManager.cr} ${totalCredit.toStringAsFixed(2)} Credit",
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
@@ -215,7 +216,7 @@ class _AccountDataState extends State<AccountData> with TickerProviderStateMixin
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            "₹ ${totalDebit.toStringAsFixed(2)} Debit",
+                            "${CurrencyManager.cr} ${totalDebit.toStringAsFixed(2)} Debit",
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
@@ -278,7 +279,7 @@ class _AccountDataState extends State<AccountData> with TickerProviderStateMixin
                         ),
                       ),
                       title: Text(
-                        "₹ $amount",
+                        "${CurrencyManager.cr} $amount",
                         style: TextStyle(
                           color: isCredit ? Colors.green : Colors.red,
                           fontWeight: FontWeight.bold,

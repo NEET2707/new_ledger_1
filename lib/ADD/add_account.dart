@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Import for FirebaseAuth
-import 'package:new_ledger_1/sharedpreferences.dart';
+import 'package:new_ledger_1/SharedPref/sharedpreferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../account_data.dart';
 import '../colors.dart';
-import '../settings.dart';
+import '../Settings/settings.dart';
 
 
 

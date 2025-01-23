@@ -40,11 +40,21 @@ dependencies:
   flutter_speed_dial: ^7.0.0
   cloud_firestore: ^5.6.1
   intl: ^0.20.1
+  pdf: ^3.11.1
+  printing: ^5.13.4
   shared_preferences: ^2.3.5
+  currency_picker: ^2.0.21
+  provider: ^6.1.2
+  flutter_contacts: ^1.1.9+2
+#  flutter_native_contact_picker: ^0.0.10
+#  permission_handler: ^11.3.1
+#  contacts_service: ^0.6.3
+#  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  url_launcher: ^6.3.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

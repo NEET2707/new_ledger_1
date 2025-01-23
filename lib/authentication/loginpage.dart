@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:new_ledger_1/authentication/signuppage.dart';
 import 'package:new_ledger_1/colors.dart';
 import 'package:new_ledger_1/home.dart';
-import 'package:new_ledger_1/sharedpreferences.dart';
+import 'package:new_ledger_1/SharedPref/sharedpreferences.dart';
 
 import 'forgot_password.dart';
 
@@ -22,33 +22,51 @@ class _LoginPageState extends State<LoginPage> {
 
   void _login() async {
     try {
+      // Authenticate the user with Firebase
       await _auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      await spHelper.saveUserEmail(_emailController.text);
+
+      // Save the user email in SharedPreferences
+      await SharedPreferenceHelper.save(
+        value: _emailController.text.trim(),
+        prefKey: PrefKey.userEmail,
+      );
+
+      // Query Firestore for user data
       QuerySnapshot querySnapshot = await FirebaseFirestore.instance
           .collection("users")
-          .where('email', isEqualTo: _emailController.text)
+          .where('email', isEqualTo: _emailController.text.trim())
           .get();
 
       if (querySnapshot.docs.isNotEmpty) {
         DocumentSnapshot userDoc = querySnapshot.docs.first;
         String uid = userDoc["uid"];
 
-        await spHelper.saveUserId(uid);
+        // Save the user ID in SharedPreferences
+        await SharedPreferenceHelper.save(
+          value: uid,
+          prefKey: PrefKey.userId,
+        );
+
+        // Navigate to the Home screen
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => Home()),
         );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('User not found in Firestore')),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(e.toString()),
-      ));
+      // Display an error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
     }
   }
-
 
 
   @override
