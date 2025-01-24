@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import 'package:new_ledger_1/Settings/settings.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -17,8 +18,11 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
   // Data for the table
   List<Map<String, dynamic>> transactions = [];
   String _transactionTypeFilter = 'All';
-  DateTime _startDate = DateTime.now();
-  DateTime _endDate = DateTime.now();
+  DateTime _sDate = DateTime.now();
+  DateTime _eDate = DateTime.now();
+  late DateTime _startDate;
+  late DateTime _endDate;
+
 
   // Controllers for date fields
   TextEditingController _startDateController = TextEditingController();
@@ -27,15 +31,25 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
   @override
   void initState() {
     super.initState();
-    _fetchTransactions();
-    _startDateController.text = _startDate.toLocal().toString().split(' ')[0];
-    _endDateController.text = _endDate.toLocal().toString().split(' ')[0];
+    // Ensure that _startDate and _endDate are initialized to valid DateTime values
+    _startDate = DateTime.now().subtract(Duration(days: 30)); // Default to 30 days ago
+    _endDate = DateTime.now(); // Default to current date
+    _startDateController.text = DateFormat('yyyy-MM-dd').format(_startDate); // Format start date
+    _endDateController.text = DateFormat('yyyy-MM-dd').format(_endDate); // Format end date
+    _fetchTransactions(); // Fetch transactions on page load
   }
+
+
 
   Future<void> _fetchTransactions() async {
     try {
       QuerySnapshot transactionSnapshot = await _firestore.collection('Transaction').get();
       List<Map<String, dynamic>> tempTransactions = [];
+
+      // Log the fetched documents for debugging
+      print('Fetched Documents: ${transactionSnapshot.docs.length}');
+
+      DateTime currentDate = DateTime.now();
 
       for (var doc in transactionSnapshot.docs) {
         String accountId = doc['account_id'].toString();
@@ -47,14 +61,40 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
           accountName = accountDoc['account_name'];
         }
 
-        tempTransactions.add({
-          'account': accountName,
-          'date': doc[textlink.transactionDate] is Timestamp
-              ? doc[textlink.transactionDate].toDate().toString()
-              : doc[textlink.transactionDate].toString(),
-          'amount': doc[textlink.transactionAmount].toString(),
-          'isCredit': doc[textlink.transactionIsCredited] ?? false,
-        });
+        // Get transaction date directly from Firebase (it's already formatted as string)
+        String transactionDateString = doc['transaction_date']; // Get the string date from the doc
+
+        // Parse the string date into a DateTime object using DateFormat
+        DateTime transactionDate = DateFormat('d MMM yyyy').parse(transactionDateString);
+
+        // Filter transactions based on selected date range and transaction type
+        bool isWithinDateRange = transactionDate.isAfter(_startDate) && transactionDate.isBefore(_endDate);
+
+        // Apply filters based on transaction type
+        bool isTransactionTypeMatch = false;
+
+        // If 'All' is selected, include all transactions within the date range
+        if (_transactionTypeFilter == 'All') {
+          isTransactionTypeMatch = true;
+        }
+        // If 'Credit' is selected, include only credit transactions
+        else if (_transactionTypeFilter == 'Credit' && doc['is_credited'] == true) {
+          isTransactionTypeMatch = true;
+        }
+        // If 'Debit' is selected, include only debit transactions
+        else if (_transactionTypeFilter == 'Debit' && doc['is_credited'] == false) {
+          isTransactionTypeMatch = true;
+        }
+
+        // Add the transaction to the list if it matches both the date range and transaction type
+        if (isWithinDateRange && isTransactionTypeMatch) {
+          tempTransactions.add({
+            'account': accountName,
+            'date': DateFormat('yyyy-MM-dd').format(transactionDate), // Format the date for display
+            'amount': doc['transaction_amount'].toString(),
+            'isCredit': doc['is_credited'] ?? false,
+          });
+        }
       }
 
       setState(() {
@@ -114,151 +154,151 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
   }
 
   Future<void> _showFilterDialog() async {
-    // Declare variables to hold selected filters
-    DateTime? startDate = _startDate;
-    DateTime? endDate = _endDate;
-    String? selectedType = _transactionTypeFilter;
+    // Start with the correct types for date variables
+    DateTime tempStartDate = _startDate ?? DateTime.now();
+    DateTime tempEndDate = _endDate ?? DateTime.now();
+    String tempTransactionType = _transactionTypeFilter;
 
     await showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text('Filter Transactions'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Transaction Type Selector using RadioButtons
-                Text('Transaction Type'),
-                ListTile(
-                  title: Text('All'),
-                  leading: Radio<String>(
-                    value: 'All',
-                    groupValue: selectedType,
-                    onChanged: (String? value) {
-                      setState(() {
-                        selectedType = value;
-                      });
-                    },
-                  ),
-                ),
-                ListTile(
-                  title: Text('Credit'),
-                  leading: Radio<String>(
-                    value: 'Credit',
-                    groupValue: selectedType,
-                    onChanged: (String? value) {
-                      setState(() {
-                        selectedType = value;
-                      });
-                    },
-                  ),
-                ),
-                ListTile(
-                  title: Text('Debit'),
-                  leading: Radio<String>(
-                    value: 'Debit',
-                    groupValue: selectedType,
-                    onChanged: (String? value) {
-                      setState(() {
-                        selectedType = value;
-                      });
-                    },
-                  ),
-                ),
-                SizedBox(height: 20),
-
-                // Start Date Picker with TextField
-                Text('Start Date:'),
-                Row(
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Filter Transactions'),
+              content: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _startDateController,
-                        readOnly: true,
-                        decoration: InputDecoration(
-                          hintText: 'Select Start Date',
-                          suffixIcon: IconButton(
-                            icon: Icon(Icons.calendar_today),
-                            onPressed: () async {
-                              final DateTime? pickedStartDate = await showDatePicker(
-                                context: context,
-                                initialDate: startDate ?? DateTime.now(),
-                                firstDate: DateTime(2000),
-                                lastDate: DateTime(2101),
-                              );
-                              if (pickedStartDate != null && pickedStartDate != startDate) {
-                                setState(() {
-                                  startDate = pickedStartDate;
-                                  _startDateController.text = startDate!.toLocal().toString().split(' ')[0];
-                                });
-                              }
-                            },
+                    Text('Transaction Type'),
+                    ListTile(
+                      title: Text('All'),
+                      leading: Radio<String>(
+                        value: 'All',
+                        groupValue: tempTransactionType,
+                        onChanged: (String? value) {
+                          setDialogState(() {
+                            tempTransactionType = value!;
+                          });
+                        },
+                      ),
+                    ),
+                    ListTile(
+                      title: Text('Credit'),
+                      leading: Radio<String>(
+                        value: 'Credit',
+                        groupValue: tempTransactionType,
+                        onChanged: (String? value) {
+                          setDialogState(() {
+                            tempTransactionType = value!;
+                          });
+                        },
+                      ),
+                    ),
+                    ListTile(
+                      title: Text('Debit'),
+                      leading: Radio<String>(
+                        value: 'Debit',
+                        groupValue: tempTransactionType,
+                        onChanged: (String? value) {
+                          setDialogState(() {
+                            tempTransactionType = value!;
+                          });
+                        },
+                      ),
+                    ),
+                    SizedBox(height: 20),
+
+                    Text('Start Date:'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _startDateController,
+                            readOnly: true,
+                            decoration: InputDecoration(
+                              hintText: 'Select Start Date',
+                              suffixIcon: IconButton(
+                                icon: Icon(Icons.calendar_today),
+                                onPressed: () async {
+                                  final DateTime? pickedStartDate = await showDatePicker(
+                                    context: context,
+                                    initialDate: tempStartDate,
+                                    firstDate: DateTime(2000),
+                                    lastDate: DateTime(2101),
+                                  );
+                                  if (pickedStartDate != null) {
+                                    setDialogState(() {
+                                      tempStartDate = pickedStartDate;
+                                      _startDateController.text = DateFormat('yyyy-MM-dd').format(tempStartDate);
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
+                    ),
+                    SizedBox(height: 20),
+
+                    Text('End Date:'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _endDateController,
+                            readOnly: true,
+                            decoration: InputDecoration(
+                              hintText: 'Select End Date',
+                              suffixIcon: IconButton(
+                                icon: Icon(Icons.calendar_today),
+                                onPressed: () async {
+                                  final DateTime? pickedEndDate = await showDatePicker(
+                                    context: context,
+                                    initialDate: tempEndDate,
+                                    firstDate: DateTime(2000),
+                                    lastDate: DateTime(2101),
+                                  );
+                                  if (pickedEndDate != null) {
+                                    setDialogState(() {
+                                      tempEndDate = pickedEndDate;
+                                      _endDateController.text = DateFormat('yyyy-MM-dd').format(tempEndDate);
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                SizedBox(height: 20),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      // Save dates as DateTime objects (not strings)
+                      _transactionTypeFilter = tempTransactionType;
+                      _startDate = tempStartDate; // Store DateTime
+                      _endDate = tempEndDate; // Store DateTime
+                    });
 
-                // End Date Picker with TextField
-                Text('End Date:'),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _endDateController,
-                        readOnly: true,
-                        decoration: InputDecoration(
-                          hintText: 'Select End Date',
-                          suffixIcon: IconButton(
-                            icon: Icon(Icons.calendar_today),
-                            onPressed: () async {
-                              final DateTime? pickedEndDate = await showDatePicker(
-                                context: context,
-                                initialDate: endDate ?? DateTime.now(),
-                                firstDate: DateTime(2000),
-                                lastDate: DateTime(2101),
-                              );
-                              if (pickedEndDate != null && pickedEndDate != endDate) {
-                                setState(() {
-                                  endDate = pickedEndDate;
-                                  _endDateController.text = endDate!.toLocal().toString().split(' ')[0];
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                    _fetchTransactions(); // Fetch filtered transactions
+                    Navigator.pop(context);
+                  },
+                  child: Text('Apply Filters'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-
-                // Apply the selected filters
-                setState(() {
-                  _transactionTypeFilter = selectedType ?? 'All';
-                  _startDate = startDate!;
-                  _endDate = endDate!;
-                });
-
-                // Call your fetch transactions method
-                _fetchTransactions();
-              },
-              child: Text('Apply Filters'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
   }
+
 
   @override
   Widget build(BuildContext context) {

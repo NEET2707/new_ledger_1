@@ -162,7 +162,7 @@ class _AccountDataState extends State<AccountData> with TickerProviderStateMixin
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    "${CurrencyManager.cr} ${accountBalance.toStringAsFixed(2)}",
+                    "${CurrencyManager.cr}${accountBalance.toStringAsFixed(2)}",
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
@@ -190,7 +190,7 @@ class _AccountDataState extends State<AccountData> with TickerProviderStateMixin
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            "${CurrencyManager.cr} ${totalCredit.toStringAsFixed(2)} Credit",
+                            "${CurrencyManager.cr}${totalCredit.toStringAsFixed(2)} Credit",
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
@@ -216,7 +216,7 @@ class _AccountDataState extends State<AccountData> with TickerProviderStateMixin
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            "${CurrencyManager.cr} ${totalDebit.toStringAsFixed(2)} Debit",
+                            "${CurrencyManager.cr}${totalDebit.toStringAsFixed(2)} Debit",
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
@@ -279,7 +279,7 @@ class _AccountDataState extends State<AccountData> with TickerProviderStateMixin
                         ),
                       ),
                       title: Text(
-                        "${CurrencyManager.cr} $amount",
+                        "${CurrencyManager.cr}$amount",
                         style: TextStyle(
                           color: isCredit ? Colors.green : Colors.red,
                           fontWeight: FontWeight.bold,

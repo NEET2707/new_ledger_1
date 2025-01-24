@@ -338,7 +338,7 @@ class _HomeState extends State<Home> {
               ),
               SizedBox(height: 4),
               Text(
-                "${CurrencyManager.cr} ${totalAccountBalance.toStringAsFixed(2)}",
+                "${CurrencyManager.cr}${totalAccountBalance.toStringAsFixed(2)}",
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -349,8 +349,8 @@ class _HomeState extends State<Home> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildSummaryItem(Icons.arrow_upward_rounded, "${CurrencyManager.cr} ${totalCredit.toStringAsFixed(2)} Credit", Colors.green),
-                  _buildSummaryItem(Icons.arrow_downward_rounded, "${CurrencyManager.cr} ${totalDebit.toStringAsFixed(2)} Debit", Colors.red),
+                  _buildSummaryItem(Icons.arrow_upward_rounded, "${CurrencyManager.cr}${totalCredit.toStringAsFixed(2)} Credit", Colors.green),
+                  _buildSummaryItem(Icons.arrow_downward_rounded, "${CurrencyManager.cr}${totalDebit.toStringAsFixed(2)} Debit", Colors.red),
                 ],
               ),
             ],
@@ -451,7 +451,7 @@ class _HomeState extends State<Home> {
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                               Text(
-                                "${CurrencyManager.cr} ${accountBalance.toStringAsFixed(2)}",
+                                "${CurrencyManager.cr}${accountBalance.toStringAsFixed(2)}",
                                 style: TextStyle(
                                   color: accountBalance >= 0 ? Colors.green : Colors.red,
                                   fontWeight: FontWeight.bold,

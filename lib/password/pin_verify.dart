@@ -84,7 +84,7 @@ class _VerifyPinScreenState extends State<VerifyPinScreen>
     return WillPopScope(
       onWillPop: () => showExitPopup(context),
       child: Scaffold(
-        backgroundColor:bodycolor,
+        backgroundColor:Colors.white,
         body: Padding(
           padding: const EdgeInsets.symmetric(vertical: 40.0), // Add padding here
           child: Column(
@@ -103,7 +103,7 @@ class _VerifyPinScreenState extends State<VerifyPinScreen>
               ),
               SizedBox(height: 20),
               Text(
-                "Cash Book",
+                "Ledger",
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,

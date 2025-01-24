@@ -26,7 +26,7 @@ class _SetPinScreenState extends State<SetPinScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bodycolor,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text("Set PIN", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: themecolor,

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 // Rename the Settings class to AppSettings to avoid conflicts
 import '../../colors.dart';
+import '../authentication/loginpage.dart';
 import '../password/set_pin.dart';
 import '../SharedPref/sharedpreferences.dart';
 import 'all_accounts.dart';
@@ -96,13 +97,15 @@ class _AppSettingsState extends State<AppSettings> {
     try {
       await _auth.signOut();
       // Redirect to Login Page after logout
-      Navigator.of(context)
-          .pushReplacementNamed('/login'); // Update route accordingly
+      Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context)=> LoginPage(),
+          ),
+            (Route<dynamic> route) => false,
+      ); // Update route accordingly
     } catch (e) {
       print('Error logging out: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to log out. Please try again.")),
-      );
+
     }
   }
 
