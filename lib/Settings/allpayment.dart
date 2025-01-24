@@ -1,11 +1,12 @@
+import 'dart:convert';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:new_ledger_1/Settings/settings.dart';
-import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AllPaymentPage extends StatefulWidget {
   @override
@@ -15,7 +16,10 @@ class AllPaymentPage extends StatefulWidget {
 class _AllPaymentPageState extends State<AllPaymentPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Data for the table
+  List<Map<String, dynamic>> _cachedTransactions = [];
+  bool _dataLoaded = false;
+  bool load = false;
+
   List<Map<String, dynamic>> transactions = [];
   String _transactionTypeFilter = 'All';
   DateTime _sDate = DateTime.now();
@@ -23,74 +27,105 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
   late DateTime _startDate;
   late DateTime _endDate;
 
-
-  // Controllers for date fields
   TextEditingController _startDateController = TextEditingController();
   TextEditingController _endDateController = TextEditingController();
+
+  User? user;
+  late String userId;
+
 
   @override
   void initState() {
     super.initState();
-    // Ensure that _startDate and _endDate are initialized to valid DateTime values
-    _startDate = DateTime.now().subtract(Duration(days: 30)); // Default to 30 days ago
-    _endDate = DateTime.now(); // Default to current date
-    _startDateController.text = DateFormat('yyyy-MM-dd').format(_startDate); // Format start date
-    _endDateController.text = DateFormat('yyyy-MM-dd').format(_endDate); // Format end date
-    _fetchTransactions(); // Fetch transactions on page load
+    user = FirebaseAuth.instance.currentUser;
+    userId = user?.uid ?? '';
+    print("-------------> $userId");
+
+    _startDate = DateTime.now().subtract(Duration(days: 30));
+    _endDate = DateTime.now();
+    _startDateController.text = DateFormat('yyyy-MM-dd').format(_startDate);
+    _endDateController.text = DateFormat('yyyy-MM-dd').format(_endDate);
+
+    // Try to load from cache first
+    if (!_dataLoaded) {
+      _loadTransactionsFromCache(); // Load from cache if available
+    } else {
+      setState(() {
+        transactions = _cachedTransactions;
+      });
+    }
   }
 
+  // Load cached transactions from SharedPreferences
+  Future<void> _loadTransactionsFromCache() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? cachedData = prefs.getString('cachedTransactions');
 
+    if (cachedData != null) {
+      List<dynamic> cachedList = jsonDecode(cachedData);
+      print('Loaded transactions from cache: $cachedList');
+      setState(() {
+        _cachedTransactions = List<Map<String, dynamic>>.from(cachedList);
+        transactions = _cachedTransactions;
+        _dataLoaded = true;
+      });
+    } else {
+      print('No cached data found.');
+      _fetchTransactions(); // If no cache, fetch from Firestore
+    }
+  }
 
+  // Fetch transactions from Firestore and save them to cache
   Future<void> _fetchTransactions() async {
+    setState(() {
+      load = true;
+    });
     try {
-      QuerySnapshot transactionSnapshot = await _firestore.collection('Transaction').get();
+      // Get the current user's UID from Firebase Authentication
+
+      // Fetch transactions for the specific userId
+      QuerySnapshot transactionSnapshot = await _firestore
+          .collection('Transaction')
+          .where('user_id', isEqualTo: userId)  // Filter by userId
+          .get();
+
       List<Map<String, dynamic>> tempTransactions = [];
-
-      // Log the fetched documents for debugging
-      print('Fetched Documents: ${transactionSnapshot.docs.length}');
-
       DateTime currentDate = DateTime.now();
 
       for (var doc in transactionSnapshot.docs) {
         String accountId = doc['account_id'].toString();
         String accountName = 'Unknown Account';
 
-        // Fetch account_name using account_id
-        DocumentSnapshot accountDoc = await _firestore.collection('Account').doc(accountId).get();
+        DocumentSnapshot accountDoc =
+        await _firestore.collection('Account').doc(accountId).get();
         if (accountDoc.exists) {
           accountName = accountDoc['account_name'];
         }
 
-        // Get transaction date directly from Firebase (it's already formatted as string)
-        String transactionDateString = doc['transaction_date']; // Get the string date from the doc
+        String transactionDateString = doc['transaction_date'];
+        DateTime transactionDate =
+        DateFormat('d MMM yyyy').parse(transactionDateString);
 
-        // Parse the string date into a DateTime object using DateFormat
-        DateTime transactionDate = DateFormat('d MMM yyyy').parse(transactionDateString);
-
-        // Filter transactions based on selected date range and transaction type
-        bool isWithinDateRange = transactionDate.isAfter(_startDate) && transactionDate.isBefore(_endDate);
+        bool isWithinDateRange = transactionDate.isAfter(_startDate) &&
+            transactionDate.isBefore(_endDate);
 
         // Apply filters based on transaction type
         bool isTransactionTypeMatch = false;
 
-        // If 'All' is selected, include all transactions within the date range
         if (_transactionTypeFilter == 'All') {
           isTransactionTypeMatch = true;
-        }
-        // If 'Credit' is selected, include only credit transactions
-        else if (_transactionTypeFilter == 'Credit' && doc['is_credited'] == true) {
+        } else if (_transactionTypeFilter == 'Credit' &&
+            doc['is_credited'] == true) {
           isTransactionTypeMatch = true;
-        }
-        // If 'Debit' is selected, include only debit transactions
-        else if (_transactionTypeFilter == 'Debit' && doc['is_credited'] == false) {
+        } else if (_transactionTypeFilter == 'Debit' &&
+            doc['is_credited'] == false) {
           isTransactionTypeMatch = true;
         }
 
-        // Add the transaction to the list if it matches both the date range and transaction type
         if (isWithinDateRange && isTransactionTypeMatch) {
           tempTransactions.add({
             'account': accountName,
-            'date': DateFormat('yyyy-MM-dd').format(transactionDate), // Format the date for display
+            'date': DateFormat('yyyy-MM-dd').format(transactionDate),
             'amount': doc['transaction_amount'].toString(),
             'isCredit': doc['is_credited'] ?? false,
           });
@@ -98,65 +133,37 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
       }
 
       setState(() {
+        load = false;
         transactions = tempTransactions;
+        _cachedTransactions = tempTransactions; // Cache the transactions
+        _dataLoaded = true;
+        _saveTransactionsToCache(tempTransactions); // Save to cache
       });
-
-      print('Fetched Transactions: $transactions');
     } catch (e) {
-      print("Error fetching transactions: $e");
+      setState(() {
+        load = false;
+      });
     }
   }
 
-  Future<void> _generatePDF() async {
-    final pdf = pw.Document();
+  // Save transactions to SharedPreferences
+  Future<void> _saveTransactionsToCache(List<Map<String, dynamic>> transactions) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String jsonString = jsonEncode(transactions);
+    bool success = await prefs.setString('cachedTransactions', jsonString); // Save data to cache
 
-    pdf.addPage(
-      pw.Page(
-        build: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text(
-              'All Transactions',
-              style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 10),
-            pw.Table(
-              border: pw.TableBorder.all(),
-              children: [
-                pw.TableRow(
-                  children: [
-                    pw.Text('Account'),
-                    pw.Text('Date'),
-                    pw.Text('Amount (Dr/Cr)'),
-                  ],
-                ),
-                ...transactions.map(
-                      (txn) => pw.TableRow(
-                    children: [
-                      pw.Text(txn['account']),
-                      pw.Text(txn['date']),
-                      pw.Text(
-                        '${txn['amount']} ${txn['isCredit'] ? "Cr" : "Dr"}',
-                      ),
-                    ],
-                  ),
-                )
-              ],
-            )
-          ],
-        ),
-      ),
-    );
-
-    await Printing.layoutPdf(
-      onLayout: (format) async => pdf.save(),
-    );
+    if (success) {
+      print('Data successfully saved to cache.');
+    } else {
+      print('Failed to save data to cache.');
+    }
   }
 
+  // Other methods and widget building code remain the same
   Future<void> _showFilterDialog() async {
     // Start with the correct types for date variables
     DateTime tempStartDate = _startDate ?? DateTime.now();
-    DateTime tempEndDate = _endDate ?? DateTime.now();
+      DateTime tempEndDate = _endDate ?? DateTime.now();
     String tempTransactionType = _transactionTypeFilter;
 
     await showDialog(
@@ -208,7 +215,6 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
                       ),
                     ),
                     SizedBox(height: 20),
-
                     Text('Start Date:'),
                     Row(
                       children: [
@@ -221,7 +227,8 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
                               suffixIcon: IconButton(
                                 icon: Icon(Icons.calendar_today),
                                 onPressed: () async {
-                                  final DateTime? pickedStartDate = await showDatePicker(
+                                  final DateTime? pickedStartDate =
+                                      await showDatePicker(
                                     context: context,
                                     initialDate: tempStartDate,
                                     firstDate: DateTime(2000),
@@ -230,7 +237,9 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
                                   if (pickedStartDate != null) {
                                     setDialogState(() {
                                       tempStartDate = pickedStartDate;
-                                      _startDateController.text = DateFormat('yyyy-MM-dd').format(tempStartDate);
+                                      _startDateController.text =
+                                          DateFormat('yyyy-MM-dd')
+                                              .format(tempStartDate);
                                     });
                                   }
                                 },
@@ -241,7 +250,6 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
                       ],
                     ),
                     SizedBox(height: 20),
-
                     Text('End Date:'),
                     Row(
                       children: [
@@ -254,7 +262,8 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
                               suffixIcon: IconButton(
                                 icon: Icon(Icons.calendar_today),
                                 onPressed: () async {
-                                  final DateTime? pickedEndDate = await showDatePicker(
+                                  final DateTime? pickedEndDate =
+                                      await showDatePicker(
                                     context: context,
                                     initialDate: tempEndDate,
                                     firstDate: DateTime(2000),
@@ -263,7 +272,9 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
                                   if (pickedEndDate != null) {
                                     setDialogState(() {
                                       tempEndDate = pickedEndDate;
-                                      _endDateController.text = DateFormat('yyyy-MM-dd').format(tempEndDate);
+                                      _endDateController.text =
+                                          DateFormat('yyyy-MM-dd')
+                                              .format(tempEndDate);
                                     });
                                   }
                                 },
@@ -299,6 +310,51 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
     );
   }
 
+  Future<void> _generatePDF() async {
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              'All Transactions',
+              style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+            ),
+            pw.SizedBox(height: 10),
+            pw.Table(
+              border: pw.TableBorder.all(),
+              children: [
+                pw.TableRow(
+                  children: [
+                    pw.Text('Account'),
+                    pw.Text('Date'),
+                    pw.Text('Amount (Dr/Cr)'),
+                  ],
+                ),
+                ...transactions.map(
+                  (txn) => pw.TableRow(
+                    children: [
+                      pw.Text(txn['account']),
+                      pw.Text(txn['date']),
+                      pw.Text(
+                        '${txn['amount']} ${txn['isCredit'] ? "Cr" : "Dr"}',
+                      ),
+                    ],
+                  ),
+                )
+              ],
+            )
+          ],
+        ),
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (format) async => pdf.save(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -339,6 +395,7 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
           ),
         ],
       ),
+
       body: Column(
         children: [
           Container(
@@ -361,6 +418,13 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
               ],
             ),
           ),
+          load ? Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(height: MediaQuery.of(context).size.height / 2.5,),
+              Center(child: CircularProgressIndicator()),
+            ],
+          ):
           Expanded(
             child: ListView.builder(
               itemCount: transactions.length,

@@ -71,14 +71,12 @@ class _HomeState extends State<Home> {
         return 1;
       }
     } catch (e) {
-      print('Error fetching data: $e');
       return -1; // Return a safe fallback value in case of error
     }
   }
 
   addData(String PaccountName, String PaccountContact, String PaccountEmail, String PaccountDescription) async {
     if (PaccountName.isEmpty || PaccountContact.isEmpty) {
-      print("Enter required fields");
       return;
     }
 
@@ -102,7 +100,6 @@ class _HomeState extends State<Home> {
         ),
       );
     } else {
-      print("User not logged in");
     }
   }
 
@@ -117,7 +114,6 @@ class _HomeState extends State<Home> {
         // Call your addData function with the contact's details
         addData(a, b, "", "");
 
-        print('Selected Contact: $a, $b'); // Debugging
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Selected: ${a}, ${b}')),
         );
@@ -139,7 +135,6 @@ class _HomeState extends State<Home> {
   Future<void> _fetchUserData() async {
     User? user = _auth.currentUser;
 
-    print(user);
     if (user != null) {
       DocumentSnapshot userDoc =
       await _firestore.collection('users').doc(user.uid).get();
@@ -166,7 +161,6 @@ class _HomeState extends State<Home> {
           .get();
 
       for (var account in accountSnapshot.docs) {
-        print('Account Data: ${account.data()}'); // Debugging log
 
         if (account.data().containsKey('account_id')) {
           final accountId = account['account_id'];
@@ -188,7 +182,6 @@ class _HomeState extends State<Home> {
             }
           }
         } else {
-          print('Missing account_id in account document: ${account.id}');
         }
       }
 
@@ -199,7 +192,6 @@ class _HomeState extends State<Home> {
         isLoading = false; // Stop loading
       });
     } catch (e) {
-      print('Error calculating totals: $e');
       setState(() {
         isLoading = false; // Stop loading in case of error
       });
@@ -221,15 +213,12 @@ class _HomeState extends State<Home> {
   void _reloadPage() {
     setState(() {
       // Add your reload logic here
-      print('Page reloaded');
     });
   }
 
   @override
   Widget build(BuildContext context) {
 
-    print(a);
-    print(b);
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -376,7 +365,6 @@ class _HomeState extends State<Home> {
                 .where("userId", isEqualTo: _auth.currentUser?.uid) // Filter by uid
                 .snapshots(),
             builder: (context, accountSnapshot) {
-              print(accountSnapshot.connectionState);
               if (accountSnapshot.connectionState == ConnectionState.waiting) {
                 return Center(child: CircularProgressIndicator());
               }
@@ -394,7 +382,6 @@ class _HomeState extends State<Home> {
                     final account = accounts[index];
 
                     final accountId = account[textlink.accountId];
-                    print(accountId);
                     final accountName = account[textlink.accountName];
                     final accountContact = account[textlink.accountContact];
 
@@ -413,10 +400,8 @@ class _HomeState extends State<Home> {
                         double debitSum = 0.0;
 
                         for (var transaction in transactions) {
-                          print("Transaction Data: ${transaction.data()}");
                           double amount = double.parse(transaction[textlink.transactionAmount].toString());
                           bool isCredit = transaction[textlink.transactionIsCredited] ?? false;
-                          print("Amount: $amount, Is Credit: $isCredit");
 
                           if (selectedTab == "ALL" ||
                               (selectedTab == "CREDIT" && isCredit) ||
@@ -426,13 +411,9 @@ class _HomeState extends State<Home> {
                             } else {
                               debitSum += amount;
                             }
-                            // print("Account Name: $accountName");
-                            // print("Credit Sum: ${CurrencyManager.cr}editSum, Debit Sum: $debitSum, Account Balance: ");
                           }
                         }
-
                         double accountBalance = creditSum - debitSum;
-                        // print('Credit: ${CurrencyManager.cr}editSum, Debit: $debitSum, Account Balance: $accountBalance');
 
                         return ListTile(
                           contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
@@ -446,9 +427,12 @@ class _HomeState extends State<Home> {
                           title: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                accountName,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              Flexible(
+                                child: Text(
+                                  accountName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  overflow: TextOverflow.ellipsis,  // Ensures text is truncated if it overflows
+                                ),
                               ),
                               Text(
                                 "${CurrencyManager.cr}${accountBalance.toStringAsFixed(2)}",
@@ -554,6 +538,7 @@ class _HomeState extends State<Home> {
                             );
                           },
                         );
+
                       },
                     );
                   },

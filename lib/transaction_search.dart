@@ -87,7 +87,6 @@ class _SearchPageState extends State<SearchPage> {
                       subtitle: Text("ID: ${account[textlink.accountId]}"),
                       trailing: Text(account[textlink.accountContact]),
                       onTap: () {
-                        print(account[textlink.accountId]);
                         Navigator.pop(context, {
                           "name": account[textlink.accountName],
                           "id": account[textlink.accountId],

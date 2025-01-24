@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:new_ledger_1/authentication/signuppage.dart';
 import 'package:new_ledger_1/colors.dart';
 import 'package:new_ledger_1/home.dart';
@@ -19,6 +20,9 @@ class _LoginPageState extends State<LoginPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final SharedPreferenceHelper spHelper = SharedPreferenceHelper();
   bool _passwordVisible = false;
+
+  // Move the GoogleSignIn instance here
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   void _login() async {
     try {
@@ -64,6 +68,94 @@ class _LoginPageState extends State<LoginPage> {
       // Display an error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
+      );
+    }
+  }
+
+  Future<User?> signInWithGoogle() async {
+    try {
+      print('Starting Google Sign-In');
+
+      // Sign out first to ensure the account picker appears
+      await _googleSignIn.signOut();
+
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        print('Google Sign-In canceled');
+        return null;
+      }
+      print('Google user signed in: ${googleUser.email}');
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      final User? user = userCredential.user;
+
+      if (user != null) {
+        // Save user data to SharedPreferences
+        await SharedPreferenceHelper.save(
+          value: user.email ?? '',
+          prefKey: PrefKey.userEmail,
+        );
+        await SharedPreferenceHelper.save(
+          value: user.uid,
+          prefKey: PrefKey.userId,
+        );
+
+        // Check if user exists in Firestore
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection("users")
+            .doc(user.uid)
+            .get();
+
+        if (!userDoc.exists) {
+          // Create a new user in Firestore
+          await FirebaseFirestore.instance.collection("users").doc(user.uid).set({
+            'uid': user.uid,
+            'email': user.email,
+            'displayName': user.displayName,
+            'photoURL': user.photoURL,
+          });
+        }
+
+        // Navigate to the Home screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => Home()),
+        );
+      }
+      return user;
+    } catch (e) {
+      print('Error during Google Sign-In: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Google Sign-In failed: $e')),
+      );
+      return null;
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      await _auth.signOut();
+
+      await _googleSignIn.signOut();
+      await _googleSignIn.disconnect(); // Ensures account picker on next login
+
+      await SharedPreferenceHelper.deleteAll();
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => LoginPage()),
+            (route) => false,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Logout failed: $e')),
       );
     }
   }
@@ -136,6 +228,19 @@ class _LoginPageState extends State<LoginPage> {
               child: Text('Login', style: TextStyle(fontSize: 18, color: Colors.white)),
             ),
             SizedBox(height: 10),
+            IconButton(
+              icon: Icon(Icons.login),  // Replace with Google icon if you prefer
+              onPressed: () async {
+                User? user = await signInWithGoogle();
+                if (user != null) {
+                  print('Signed in as: ${user.displayName}');
+                  // Handle user info here (navigate, display user data, etc.)
+                } else {
+                  print('Sign-in failed or was canceled');
+                }
+              },
+            ),
+            SizedBox(height: 10),
             TextButton(
               onPressed: () {
                 Navigator.push(
@@ -148,7 +253,6 @@ class _LoginPageState extends State<LoginPage> {
                 style: TextStyle(color: themecolor, fontSize: 16),
               ),
             ),
-
             SizedBox(height: 10),
             TextButton(
               onPressed: () {

@@ -31,7 +31,6 @@ class _AccountDataState extends State<AccountData> with TickerProviderStateMixin
   @override
   void initState() {
 
-    print("----> ${widget.id}");
     super.initState();
     fetchTransactionData(); // Fetch transaction data
 
@@ -71,7 +70,6 @@ class _AccountDataState extends State<AccountData> with TickerProviderStateMixin
         accountBalance = creditSum - debitSum;
       });
     }, onError: (e) {
-      print("Error fetching transactions: $e");
       setState(() {
         isLoading = false; // Hide loading if error occurs
       });

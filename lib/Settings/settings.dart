@@ -73,6 +73,14 @@ class _AppSettingsState extends State<AppSettings> {
     }
   }
 
+  Future<void> _getSavedPin() async {
+    String? savedPin = await SharedPreferenceHelper.get(prefKey: PrefKey.pin);
+
+    setState(() {
+      isToggled = savedPin != null && savedPin.isNotEmpty;
+    });
+  }
+
   Future<void> ispinsave() async {
     String? savedPin = SharedPreferenceHelper.get(prefKey: PrefKey.pin);
     isToggled = savedPin != null ? true : false;
@@ -85,6 +93,7 @@ class _AppSettingsState extends State<AppSettings> {
   void initState() {
     super.initState();
     user = _auth.currentUser;
+    _getSavedPin();
   }
   //
   // void onToggleSwitch(bool value) {
@@ -96,16 +105,31 @@ class _AppSettingsState extends State<AppSettings> {
   Future<void> _logout() async {
     try {
       await _auth.signOut();
-      // Redirect to Login Page after logout
+      destroyCachedTransactions();
+      _deletePin();
       Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context)=> LoginPage(),
           ),
             (Route<dynamic> route) => false,
-      ); // Update route accordingly
-    } catch (e) {
-      print('Error logging out: $e');
+      );
 
+    } catch (e) {
+    }
+  }
+
+  Future<void> _deletePin() async {
+    await SharedPreferenceHelper.deleteSpecific(prefKey: PrefKey.pin);
+  }
+
+  Future<void> destroyCachedTransactions() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool success = await prefs.remove("cachedTransactions");
+
+    if (success) {
+      print("Cached transactions removed successfully.");
+    } else {
+      print("Failed to remove cached transactions.");
     }
   }
 
@@ -251,8 +275,6 @@ class _AppSettingsState extends State<AppSettings> {
                 showCurrencyName: true,
                 showCurrencyCode: true,
                 onSelect: (Currency currency) {
-                  print('Selected currency: ${currency.name}');
-                  // Update the global currency symbol and the CurrencyManager
                   Provider.of<CurrencyManager>(context, listen: false).updateCurrency(currency.symbol);
                 },
               );

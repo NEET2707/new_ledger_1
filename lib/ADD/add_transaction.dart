@@ -52,7 +52,6 @@ class _AddTransactionState extends State<AddTransaction> {
           ? querySnapshot.docs.first[textlink.transactionId] + 1
           : 1;
     } catch (e) {
-      print('Error fetching data: $e');
       return -1;
     }
   }
@@ -96,7 +95,6 @@ class _AddTransactionState extends State<AddTransaction> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Transaction added successfully")));
       }
     } catch (e) {
-      print("Error adding transaction: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error adding transaction")));
       }
@@ -110,8 +108,6 @@ class _AddTransactionState extends State<AddTransaction> {
     userId = await spHelper.getUserId();
     userEmail = await spHelper.getUserEmail();
     setState(() {
-      print("USER iiiiiiiiiiiiiiiiiiiiiiddddddddddddd : $userId");
-      print("USER iiiiiiiiiiiiiiiiiiiiiiddddddddddddd : $userEmail");
     });
   }
 
@@ -186,10 +182,6 @@ class _AddTransactionState extends State<AddTransaction> {
                         // Extract and store the result in variables
                         selectedAccountName = result['name'];
                         selectedAccountId = result['id'];
-
-                        // Now you can use the selected account details
-                        print('Selected Account: $selectedAccountName, ID: $selectedAccountId');
-
                         setState(() {
 
                         });
@@ -324,10 +316,6 @@ class _AddTransactionState extends State<AddTransaction> {
                             textlink.transactionAccountId: textlink.accountId,
                           };
 
-
-                          print("Inserting transaction data (DEBIT): $transactionData");
-
-
                           _addTransaction(false);
                           Navigator.pop(context, true);
                         }
@@ -351,8 +339,6 @@ class _AddTransactionState extends State<AddTransaction> {
                           };
 
                           _addTransaction(true);
-                          // Print the data before inserting
-                          print("Inserting transaction data (CREDIT): $transactionData");
                           Navigator.pop(context, true);
                         }
                       },

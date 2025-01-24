@@ -60,4 +60,5 @@ class SharedPreferenceHelper {
   Future<String?> getPassword() async {
     return _sharedPreferences.getString(PrefKey.password.name);
   }
+
 }

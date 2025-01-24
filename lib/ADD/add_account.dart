@@ -50,14 +50,12 @@ class _AddAccountState extends State<AddAccount> {
         return 1;
       }
     } catch (e) {
-      print('Error fetching data: $e');
       return -1; // Return a safe fallback value in case of error
     }
   }
 
   addData(String PaccountName, String PaccountContact, String PaccountEmail, String PaccountDescription) async {
     if (PaccountName.isEmpty || PaccountContact.isEmpty) {
-      print("Enter required fields");
       return;
     }
 
@@ -81,7 +79,6 @@ class _AddAccountState extends State<AddAccount> {
         ),
       );
     } else {
-      print("User not logged in");
     }
   }
 
@@ -93,8 +90,6 @@ class _AddAccountState extends State<AddAccount> {
     userId = await spHelper.getUserId();
     userEmail = await spHelper.getUserEmail();
     setState(() {
-      print("USER iiiiiiiiiiiiiiiiiiiiiiddddddddddddd : $userId");
-      print("USER iiiiiiiiiiiiiiiiiiiiiiddddddddddddd : $userEmail");
     });
   }
 

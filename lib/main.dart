@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:new_ledger_1/contactpicker.dart';
 import 'package:new_ledger_1/SharedPref/sharedpreferences.dart';
+import 'package:new_ledger_1/password/splashscreen.dart';
 import 'package:provider/provider.dart'; // Import the provider package
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -31,7 +32,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
-      home: AuthHandler(),
+      home: SplashScreen(),
+
+      // AuthHandler(),
     );
   }
 }
