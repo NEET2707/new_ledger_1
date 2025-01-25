@@ -17,7 +17,7 @@ import '../colors.dart'; // Import your custom colors file.
 
 // Account table field names
 class textlink {
-  static const String tblAccount = "Account";
+  static String tblAccount = "Account";
   static String accountId = "account_id";
   static String accountName = "account_name";
   static String accountContact = "account_contact";
@@ -56,7 +56,6 @@ class _AppSettingsState extends State<AppSettings> {
   String selectedCurrency = 'USD'; // Default currency
   User? user;
   bool isToggled = false;
-
 
   void onToggleSwitch(bool value) {
     if (value) {
@@ -108,14 +107,13 @@ class _AppSettingsState extends State<AppSettings> {
       destroyCachedTransactions();
       _deletePin();
       Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context)=> LoginPage(),
-          ),
-            (Route<dynamic> route) => false,
+        context,
+        MaterialPageRoute(
+          builder: (context) => LoginPage(),
+        ),
+        (Route<dynamic> route) => false,
       );
-
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   Future<void> _deletePin() async {
@@ -133,11 +131,9 @@ class _AppSettingsState extends State<AppSettings> {
     }
   }
 
-
   // Function to launch the URL
   Future<void> _launchUrl(String links) async {
-    final Uri _url =
-    Uri.parse(links);
+    final Uri _url = Uri.parse(links);
     if (!await launchUrl(_url)) {
       throw 'Could not launch $_url';
     }
@@ -210,7 +206,7 @@ class _AppSettingsState extends State<AppSettings> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         leading: GestureDetector(
-            onTap: (){
+            onTap: () {
               Navigator.pop(context, true);
             },
             child: Icon(Icons.arrow_back)),
@@ -252,10 +248,10 @@ class _AppSettingsState extends State<AppSettings> {
             icon: Icons.lock,
             title: "Enter PIN",
             subtitle: "Secure your app with a PIN.",
-            leadingIcon: Icons.lock,  // Set leadingIcon to use the lock icon
+            leadingIcon: Icons.lock, // Set leadingIcon to use the lock icon
             trailingWidget: Switch(
-              value: isToggled,  // Current state of the switch
-              onChanged: onToggleSwitch,  // Callback to toggle the switch
+              value: isToggled, // Current state of the switch
+              onChanged: onToggleSwitch, // Callback to toggle the switch
             ),
           ),
 
@@ -275,7 +271,8 @@ class _AppSettingsState extends State<AppSettings> {
                 showCurrencyName: true,
                 showCurrencyCode: true,
                 onSelect: (Currency currency) {
-                  Provider.of<CurrencyManager>(context, listen: false).updateCurrency(currency.symbol);
+                  Provider.of<CurrencyManager>(context, listen: false)
+                      .updateCurrency(currency.symbol);
                 },
               );
             },
@@ -294,7 +291,7 @@ class _AppSettingsState extends State<AppSettings> {
             icon: Icons.logout,
             title: "Log Out",
             subtitle: "Sign out of your account",
-            onTap: _logout,
+            onTap: () => _showLogoutConfirmationDialog(context),
           ),
         ],
       ),
@@ -346,8 +343,9 @@ class _AppSettingsState extends State<AppSettings> {
     required String title,
     required String subtitle,
     void Function()? onTap,
-    Widget? trailingWidget, // Add this parameter for trailing widget like Switch
-    IconData? leadingIcon,  // Add this parameter to accept leadingIcon
+    Widget?
+        trailingWidget, // Add this parameter for trailing widget like Switch
+    IconData? leadingIcon, // Add this parameter to accept leadingIcon
   }) {
     return Card(
       elevation: 2,
@@ -357,7 +355,8 @@ class _AppSettingsState extends State<AppSettings> {
       ),
       child: ListTile(
         leading: leadingIcon != null
-            ? Icon(leadingIcon, size: 40, color: Colors.black54) // Use leadingIcon if available
+            ? Icon(leadingIcon,
+                size: 40, color: Colors.black54) // Use leadingIcon if available
             : Icon(icon, size: 40, color: Colors.black54), // Default icon
         title: Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(subtitle),
@@ -367,8 +366,32 @@ class _AppSettingsState extends State<AppSettings> {
     );
   }
 
-
-
+  void _showLogoutConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Confirm Log Out"),
+          content: const Text("Are you sure you want to log out?"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+              child: const Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+                _logout(); // Call the logout function
+              },
+              child: const Text("Confirm"),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
 // void _launchURL(String url) async {
   //   final Uri uri = Uri.parse(url); // Convert string URL to Uri

@@ -13,19 +13,33 @@ import '../SharedPref/sharedpreferences.dart'; // For date formatting
 
 
 class AddTransaction extends StatefulWidget {
+  final String? name;
+  final int? id;
+  final bool? flag;
+  final String? amount;
+  final String? date;
+  final String? note;
+  final String? transactionId;  // Add transaction ID
 
-  String? name;
-  int? id;
-  bool? flag;
-  // Settings? userId;
+  AddTransaction({
+    super.key,
+    this.id,
+    this.name,
+    this.flag,
+    this.amount,
+    this.date,
+    this.note,
+    this.transactionId,  // Receive transaction ID
+  });
 
-  AddTransaction({super.key, this.id, this.name, this.flag, });
   @override
   State<AddTransaction> createState() => _AddTransactionState();
 }
 
+
 class _AddTransactionState extends State<AddTransaction> {
 
+  final TextEditingController transactionNoteController = TextEditingController();
   final TextEditingController accountNameController = TextEditingController();
   final TextEditingController transactionAmountController = TextEditingController();
   final TextEditingController transactionDateController = TextEditingController();
@@ -66,10 +80,8 @@ class _AddTransactionState extends State<AddTransaction> {
         return;
       }
 
-      // Get the current user
       final currentUser = FirebaseAuth.instance.currentUser;
 
-      // Check if the user is logged in
       if (currentUser == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("No user is logged in")));
@@ -81,12 +93,12 @@ class _AddTransactionState extends State<AddTransaction> {
         textlink.transactionId: tnextId,
         textlink.transactionAmount: double.parse(amtcon.text),
         textlink.transactionDate: _formatDate(_transactionDate),
-        textlink.transactionReminderDate: _reminderDate != null ? _formatDate(_reminderDate!) : null,
-        textlink.transactionNote: 'Debit Note',
+        textlink.transactionNote: transactionNoteController.text,
         textlink.transactionIsCredited: status,
-        textlink.transactionAccountId: selectedAccountId, // Assuming selectedAccountId is the ID of the user's account
-        'user_id': currentUser.uid, // Correct the key here to 'user_id'
+        textlink.transactionAccountId: selectedAccountId,
+        'user_id': currentUser.uid,
         textlink.transactionIsDelete: false,
+        textlink.transactionReminderDate: _reminderDate != null ? _formatDate(_reminderDate!) : null,  // Save reminder date
       };
 
       await FirebaseFirestore.instance.collection(textlink.tbltransaction).doc(tnextId.toString()).set(transactionData);
@@ -111,25 +123,91 @@ class _AddTransactionState extends State<AddTransaction> {
     });
   }
 
-
-
-
   @override
   void initState() {
-    getDataFromSPHelper();
-    // TODO: implement initState
     super.initState();
-    if(widget.name!=null && widget.id!=null && widget.flag!=null){
+    getDataFromSPHelper();
+
+    if (widget.flag == true && widget.transactionId != null) {  // Editing mode
+      amtcon.text = widget.amount ?? '';
+      transactionDateController.text = widget.date ?? '';
+      transactionNoteController.text = widget.note ?? '';
+    }
+
+    if (widget.name != null && widget.id != null) {
       selectedAccountName = widget.name;
       selectedAccountId = widget.id;
     }
   }
+
+  @override
+  void dispose() {
+    transactionNoteController.dispose();
+    transactionDateController.dispose();
+    amtcon.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveTransaction(bool status) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("No user is logged in")));
+        }
+        return;
+      }
+
+      final transactionData = {
+        textlink.transactionAmount: double.parse(amtcon.text),
+        textlink.transactionDate: _formatDate(_transactionDate),
+        textlink.transactionNote: transactionNoteController.text,
+        textlink.transactionIsCredited: status,
+        textlink.transactionAccountId: selectedAccountId,
+        'user_id': currentUser.uid,
+        textlink.transactionIsDelete: false,
+        textlink.transactionReminderDate: _reminderDate != null ? _formatDate(_reminderDate!) : null,  // Save reminder date
+      };
+
+      if (widget.transactionId != null) {
+        await FirebaseFirestore.instance
+            .collection(textlink.tbltransaction)
+            .doc(widget.transactionId)
+            .update(transactionData);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Transaction updated successfully")));
+        }
+      } else {
+        int tnextId = await tgetNextId();
+        transactionData[textlink.transactionId] = tnextId;
+        await FirebaseFirestore.instance
+            .collection(textlink.tbltransaction)
+            .doc(tnextId.toString())
+            .set(transactionData);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Transaction added successfully")));
+        }
+      }
+
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error saving transaction")));
+      }
+    }
+  }
+
+
+
   Future<void> _selectDate(BuildContext context, DateTime initialDate,
       Function(DateTime) onDateSelected) async {
+    final DateTime now = DateTime.now(); // Current date and time
     final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: initialDate,
-      firstDate: DateTime(2000),
+      firstDate: now, // Set the first date to today
       lastDate: DateTime(2100),
       builder: (context, child) {
         return Theme(
@@ -144,10 +222,18 @@ class _AddTransactionState extends State<AddTransaction> {
         );
       },
     );
-    if (pickedDate != null) {
+    if (pickedDate != null && !pickedDate.isBefore(now)) { // Ensure the date is not in the past
       onDateSelected(pickedDate);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Please select a date not earlier than today.")),
+        );
+      }
     }
   }
+
+
 
   String _formatDate(DateTime date) {
     return DateFormat('dd MMM yyyy').format(date);
@@ -203,7 +289,7 @@ class _AddTransactionState extends State<AddTransaction> {
                   child:  Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                        selectedAccountName!=null ? selectedAccountName.toString() : "Select Account",
+                      selectedAccountName!=null ? selectedAccountName.toString() : "Select Account",
                       style: TextStyle(fontSize: 16),
                     ),
                   ),
@@ -257,7 +343,14 @@ class _AddTransactionState extends State<AddTransaction> {
                       });
                     },
                   ),
-                  const Text("Due Reminder"),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _isReminderChecked = !_isReminderChecked;
+                      });
+                    },
+                    child: const Text("Due Reminder"),
+                  ),
                   const Spacer(),
                   Expanded(
                     child: GestureDetector(
@@ -294,12 +387,14 @@ class _AddTransactionState extends State<AddTransaction> {
               const SizedBox(height: 16),
               const Text("Transaction Note", style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              const TextField(
-                decoration: InputDecoration(
-                  hintText: 'Note',
+              TextFormField(
+                controller: transactionNoteController,
+                decoration: const InputDecoration(
+                  hintText: 'Enter Note',
                   border: OutlineInputBorder(),
                 ),
               ),
+
               const SizedBox(height: 32),
               Row(
                 children: [
@@ -307,21 +402,16 @@ class _AddTransactionState extends State<AddTransaction> {
                     child: ElevatedButton(
                       onPressed: () {
                         if (_formKey.currentState?.validate() ?? false) {
-                          final transactionData = {
-                            textlink.transactionAmount: double.parse(amtcon.text),
-                            textlink.transactionDate: _formatDate(_transactionDate),
-                            textlink.transactionReminderDate: _reminderDate != null ? _formatDate(_reminderDate!) : null,
-                            textlink.transactionNote: 'Debit Note',
-                            textlink.transactionIsCredited: false,
-                            textlink.transactionAccountId: textlink.accountId,
-                          };
-
-                          _addTransaction(false);
+                          if (widget.flag == true) {  // Use widget.flag to access the flag property
+                            _saveTransaction(false);
+                          } else {
+                            _addTransaction(false);
+                          }
                           Navigator.pop(context, true);
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                      child: const Text("DEBIT"),
+                      child: const Text("DEBIT",style: TextStyle(color: Colors.white),),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -329,21 +419,16 @@ class _AddTransactionState extends State<AddTransaction> {
                     child: ElevatedButton(
                       onPressed: () {
                         if (_formKey.currentState?.validate() ?? false) {
-                          final transactionData = {
-                            textlink.transactionAmount: double.parse(amtcon.text),
-                            textlink.transactionDate: _formatDate(_transactionDate),
-                            textlink.transactionReminderDate: _reminderDate != null ? _formatDate(_reminderDate!) : null,
-                            textlink.transactionNote: 'Credit Note',
-                            textlink.transactionIsCredited: true,
-                            textlink.transactionAccountId: textlink.accountId,
-                          };
-
-                          _addTransaction(true);
+                          if (widget.flag == true) {  // Use widget.flag to access the flag property
+                            _saveTransaction(true);
+                          } else {
+                            _addTransaction(true);
+                          }
                           Navigator.pop(context, true);
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                      child: const Text("CREDIT"),
+                      child: const Text("CREDIT",style: TextStyle(color: Colors.white),),
                     ),
                   ),
                 ],

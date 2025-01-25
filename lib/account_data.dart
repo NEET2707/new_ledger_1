@@ -297,10 +297,15 @@ class _AccountDataState extends State<AccountData> with TickerProviderStateMixin
                                 builder: (context) => AddTransaction(
                                   id: widget.id,
                                   name: widget.name,
-                                  flag: true,
+                                  flag: true,  // Indicates editing mode
+                                  transactionId: transactionId,  // Pass transaction ID
+                                  amount: transaction[textlink.transactionAmount].toString(),
+                                  date: transaction[textlink.transactionDate],
+                                  note: transaction[textlink.transactionNote] ?? '',
                                 ),
                               ),
                             );
+
                           } else if (value == 'delete') {
                             final shouldDelete = await showDialog<bool>(
                               context: context,
@@ -399,7 +404,6 @@ class _AccountDataState extends State<AccountData> with TickerProviderStateMixin
     );
   }
 }
-
 
 
 

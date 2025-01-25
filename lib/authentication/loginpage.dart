@@ -215,7 +215,24 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
             ),
-            SizedBox(height: 20),
+            SizedBox(height: 5),
+
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => ForgotPasswordPage()),
+                  );
+                },
+                child: Text(
+                  'Forgot Password?',
+                  style: TextStyle(color: themecolor, fontSize: 16),
+                ),
+              ),
+            ),
+            SizedBox(height: 10),
             ElevatedButton(
               onPressed: _login,
               style: ElevatedButton.styleFrom(
@@ -228,8 +245,12 @@ class _LoginPageState extends State<LoginPage> {
               child: Text('Login', style: TextStyle(fontSize: 18, color: Colors.white)),
             ),
             SizedBox(height: 10),
-            IconButton(
-              icon: Icon(Icons.login),  // Replace with Google icon if you prefer
+            TextButton(
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.transparent, // Set background color to white like Google's sign-in button
+
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Button padding
+              ),
               onPressed: () async {
                 User? user = await signInWithGoogle();
                 if (user != null) {
@@ -239,33 +260,48 @@ class _LoginPageState extends State<LoginPage> {
                   print('Sign-in failed or was canceled');
                 }
               },
-            ),
-            SizedBox(height: 10),
-            TextButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ForgotPasswordPage()),
-                );
-              },
-              child: Text(
-                'Forgot Password?',
-                style: TextStyle(color: themecolor, fontSize: 16),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    'assets/image/google.png', // Add a Google logo image to your assets
+                    height: 24, // Adjust size
+                  ),
+                  SizedBox(width: 8), // Add spacing between the logo and text
+                  Text(
+                    'Sign in with Google',
+                    style: TextStyle(
+                      color: Colors.black87, // Text color
+                      fontSize: 16, // Font size
+                    ),
+                  ),
+                ],
               ),
             ),
             SizedBox(height: 10),
-            TextButton(
-              onPressed: () {
+            GestureDetector(
+              onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => SignupPage()),
                 );
               },
-              child: Text(
-                'Create an Account',
-                style: TextStyle(color: themecolor, fontSize: 16),
+              child: Center(
+                child: Text.rich(
+                  TextSpan(
+                    text: "Don't have an account?",
+                    style: TextStyle(),
+                    children: [
+                      TextSpan(
+                        text: ' Sign up',
+                        style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
+
           ],
         ),
       ),

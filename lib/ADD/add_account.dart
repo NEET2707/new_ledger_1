@@ -59,46 +59,44 @@ class _AddAccountState extends State<AddAccount> {
       return;
     }
 
-    int nextId = await getNextId();
+    // Check if it's a new account or editing an existing one
+    int nextId = widget.id == '0' ? await getNextId() : int.parse(widget.id);
     User? user = FirebaseAuth.instance.currentUser;  // Get the current user
 
     if (user != null) {
-      await FirebaseFirestore.instance.collection(textlink.tblAccount).doc(nextId.toString()).set({
-        textlink.accountName: PaccountName,
-        textlink.accountContact: PaccountContact,
-        textlink.accountId: nextId,
-        textlink.accountEmail: PaccountEmail ?? "",
-        textlink.accountDescription: PaccountDescription ?? "",
-        'userId': user.uid,
-      });
+      // If it's a new account, add new document, else update the existing account document
+      if (widget.id == '0') {
+        await FirebaseFirestore.instance.collection(textlink.tblAccount).doc(nextId.toString()).set({
+          textlink.accountName: PaccountName,
+          textlink.accountContact: PaccountContact,
+          textlink.accountId: nextId,
+          textlink.accountEmail: PaccountEmail ?? "",
+          textlink.accountDescription: PaccountDescription ?? "",
+          'userId': user.uid,
+        });
+      } else {
+        await FirebaseFirestore.instance.collection(textlink.tblAccount).doc(widget.id).update({
+          textlink.accountName: PaccountName,
+          textlink.accountContact: PaccountContact,
+          textlink.accountEmail: PaccountEmail ?? "",
+          textlink.accountDescription: PaccountDescription ?? "",
+        });
+      }
 
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => AccountData(name: PaccountName, id: nextId, num: PaccountContact),
         ),
       );
     } else {
+      // Handle user not logged in case
     }
   }
-
-
-  String? userId, userEmail;
-  SharedPreferenceHelper spHelper = SharedPreferenceHelper();
-
-  getDataFromSPHelper() async {
-    userId = await spHelper.getUserId();
-    userEmail = await spHelper.getUserEmail();
-    setState(() {
-    });
-  }
-
 
   @override
   void initState() {
     super.initState();
-    getDataFromSPHelper();
-
     if (widget.name == "none" && widget.contact == "none" && widget.id == '0') {
       accountContactController.text = "";
       accountNameController.text = "";
@@ -116,9 +114,9 @@ class _AddAccountState extends State<AddAccount> {
       appBar: AppBar(
         backgroundColor: themecolor,
         foregroundColor: Colors.white,
-        title: const Text(
-          "Create Account",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        title: Text(
+          widget.id == '0' ? 'Create Account' : 'Edit Account', // Change title based on edit or create
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
       body: Container(
@@ -152,10 +150,15 @@ class _AddAccountState extends State<AddAccount> {
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter the account contact number'; // Validation message for empty Mobile field
+                  } else if (value.length != 10) {
+                    return 'Mobile number must be exactly 10 digits';
+                  } else if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                    return 'Mobile number must contain only digits'; // Validation for non-numeric characters
                   }
                   return null;
                 },
               ),
+
               const SizedBox(height: 10),
               TextField(
                 controller: accountEmailController,
@@ -187,9 +190,9 @@ class _AddAccountState extends State<AddAccount> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: themecolor, // Set the background color to the theme color
                   ),
-                  child: const Text(
-                    'Add',
-                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                  child: Text(
+                    widget.id == '0' ? 'Add' : 'Update', // Change button label based on action
+                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -200,3 +203,4 @@ class _AddAccountState extends State<AddAccount> {
     );
   }
 }
+

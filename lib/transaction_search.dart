@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:new_ledger_1/Settings/settings.dart';
-
-
+import 'package:new_ledger_1/colors.dart';
 
 class SearchPage extends StatefulWidget {
   final String userId;
@@ -83,9 +82,15 @@ class _SearchPageState extends State<SearchPage> {
                   itemBuilder: (context, index) {
                     final account = accounts[index];
                     return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: themecolor,
+                        child: Text(
+                          account[textlink.accountName][0].toUpperCase(),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
                       title: Text(account[textlink.accountName]),
-                      subtitle: Text("ID: ${account[textlink.accountId]}"),
-                      trailing: Text(account[textlink.accountContact]),
+                      subtitle: Text(account[textlink.accountContact]),
                       onTap: () {
                         Navigator.pop(context, {
                           "name": account[textlink.accountName],

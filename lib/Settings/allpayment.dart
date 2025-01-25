@@ -39,21 +39,29 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
     super.initState();
     user = FirebaseAuth.instance.currentUser;
     userId = user?.uid ?? '';
-    print("-------------> $userId");
 
-    _startDate = DateTime.now().subtract(Duration(days: 30));
-    _endDate = DateTime.now();
-    _startDateController.text = DateFormat('yyyy-MM-dd').format(_startDate);
-    _endDateController.text = DateFormat('yyyy-MM-dd').format(_endDate);
+    // Reset filters
+    _resetFilters();
 
-    // Try to load from cache first
+    // Load transactions from cache or fetch from Firestore
     if (!_dataLoaded) {
-      _loadTransactionsFromCache(); // Load from cache if available
+      _loadTransactionsFromCache();
     } else {
       setState(() {
         transactions = _cachedTransactions;
       });
     }
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _transactionTypeFilter = 'All';
+      _startDate = DateTime.now().subtract(Duration(days: 30));
+      _endDate = DateTime.now();
+
+      _startDateController.text = DateFormat('yyyy-MM-dd').format(_startDate);
+      _endDateController.text = DateFormat('yyyy-MM-dd').format(_endDate);
+    });
   }
 
   // Load cached transactions from SharedPreferences
