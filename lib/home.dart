@@ -11,7 +11,6 @@ import 'account_data.dart';
 import 'ADD/add_transaction.dart';
 import 'ADD/add_account.dart';
 
-// Account table field names
 
 class Home extends StatefulWidget {
   Home({super.key});
@@ -21,14 +20,13 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  String selectedTab = "ALL"; // Default tab
+  String selectedTab = "ALL";
   double totalCredit = 0.0;
   double totalDebit = 0.0;
   double totalAccountBalance = 0.0;
   bool isLoading = true;
   Map<String, dynamic>? userData;
   late String user_id;
-  // Contact? _contact;
 
   String a = "";
   String b = "";
@@ -41,7 +39,7 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
-    _fetchUserData(); // Fetch user data
+    _fetchUserData();
     calculateTotals();
     _checkAndFetchContacts();
   }
@@ -131,10 +129,6 @@ class _HomeState extends State<Home> {
     }
   }
 
-
-
-
-  // Fetch user data from Firestore
   Future<void> _fetchUserData() async {
     User? user = _auth.currentUser;
 
@@ -149,42 +143,38 @@ class _HomeState extends State<Home> {
     }
   }
 
-// Function to recalculate the totals
   void calculateTotals() async {
     setState(() {
       isLoading = true; // Start loading
     });
 
-    double creditSum = 0.0;
-    double debitSum = 0.0;
-
     try {
       final accountSnapshot = await FirebaseFirestore.instance
           .collection(textlink.tblAccount)
+          .where("userId", isEqualTo: _auth.currentUser?.uid) // Filter by user ID
           .get();
 
-      for (var account in accountSnapshot.docs) {
+      double creditSum = 0.0;
+      double debitSum = 0.0;
 
-        if (account.data().containsKey('account_id')) {
-          final accountId = account['account_id'];
+      final accountIds = accountSnapshot.docs.map((doc) => doc[textlink.accountId]).toList();
 
-          final transactionSnapshot = await FirebaseFirestore.instance
-              .collection(textlink.tbltransaction)
-              .where(textlink.transactionAccountId, isEqualTo: accountId)
-              .where("user_id", isEqualTo: user_id)
-              .get();
+      if (accountIds.isNotEmpty) {
+        final transactionSnapshot = await FirebaseFirestore.instance
+            .collection(textlink.tbltransaction)
+            .where(textlink.transactionAccountId, whereIn: accountIds)
+            .where("user_id", isEqualTo: _auth.currentUser?.uid)
+            .get();
 
-          for (var transaction in transactionSnapshot.docs) {
-            double amount = double.parse(transaction[textlink.transactionAmount].toString());
-            bool isCredit = transaction[textlink.transactionIsCredited] ?? false;
+        for (var transaction in transactionSnapshot.docs) {
+          double amount = double.parse(transaction[textlink.transactionAmount].toString());
+          bool isCredit = transaction[textlink.transactionIsCredited] ?? false;
 
-            if (isCredit) {
-              creditSum += amount;
-            } else {
-              debitSum += amount;
-            }
+          if (isCredit) {
+            creditSum += amount;
+          } else {
+            debitSum += amount;
           }
-        } else {
         }
       }
 
@@ -195,12 +185,12 @@ class _HomeState extends State<Home> {
         isLoading = false; // Stop loading
       });
     } catch (e) {
+      print("Error calculating totals: $e");
       setState(() {
         isLoading = false; // Stop loading in case of error
       });
     }
   }
-
 
   void _navigateToSecondPage() async {
     final result = await Navigator.push(
@@ -228,37 +218,39 @@ class _HomeState extends State<Home> {
         automaticallyImplyLeading: false,
         backgroundColor: themecolor,
         title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, // Align items to the start
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Image.asset(
-                  'assets/image/logo.png', // Path to your logo image
-                  width: 50, // Adjust the size if needed
+                  'assets/image/logo.png',
+                  width: 50,
                   height: 80,
                   color: Colors.white,
                 ),
-                SizedBox(width: 10), // Space between the logo and text
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start, // Align text to the start
-                  children: [
-                    Text(
-                      "Ledger Book",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16, // Adjust font size for the title
-                      ),
-                    ),
-                    if (userData != null) // Check if userData is not null
+                SizedBox(width: 10),
+                Flexible(  // Wrap with Flexible to avoid overflow
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        "${userData!['email']}", // Display email as subtitle
+                        "Ledger Book",
                         style: TextStyle(
-                          color: Colors.white70, // Slightly dimmer color for subtitle
-                          fontSize: 12, // Smaller font size for subtitle
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
                         ),
                       ),
-                  ],
+                      if (userData != null)
+                        Text(
+                          "${userData!['email']}",
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -267,7 +259,7 @@ class _HomeState extends State<Home> {
 
         actions: [
           Row(
-            mainAxisSize: MainAxisSize.min, // Ensures the row is only as wide as needed
+            mainAxisSize: MainAxisSize.min,
             children: [
               GestureDetector(
                 onTap: () {
@@ -314,7 +306,7 @@ class _HomeState extends State<Home> {
                 MaterialPageRoute(builder: (context) => AddTransaction()),
               );
               if (result != null && result == true) {
-                calculateTotals(); // Recalculate totals after adding a transaction
+                calculateTotals();
               }
             },
           ),
@@ -330,7 +322,7 @@ class _HomeState extends State<Home> {
                 ),
               );
               if (result != null && result == true) {
-                calculateTotals(); // Recalculate totals after adding an account
+                calculateTotals();
               }
             }
           ),
@@ -344,11 +336,6 @@ class _HomeState extends State<Home> {
         },
         child: Column(
           children: [
-        // child: Text(
-        // _contact != null
-        // ? 'Selected Contact: ${_contact!.fullName} (${_contact!.phoneNumber?.number})'
-        //     : 'No contact selected',
-          // Display total credit, debit, and balance under "Current A/C"
           Container(
             color: Colors.blueAccent,
             padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
@@ -361,7 +348,7 @@ class _HomeState extends State<Home> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  "${CurrencyManager.cr}${totalAccountBalance.toStringAsFixed(2)}",
+                  "${CurrencyManager.cr}${totalAccountBalance.toStringAsFixed(2)} ${totalAccountBalance >= 0 ? 'CR' : 'DR'}",
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -379,7 +366,6 @@ class _HomeState extends State<Home> {
               ],
             ),
           ),
-          // Tabs for ALL, CREDIT, and DEBIT
           Container(
             color: Colors.blueAccent,
             child: Row(
@@ -436,143 +422,395 @@ class _HomeState extends State<Home> {
                           for (var transaction in transactions) {
                             double amount = double.parse(transaction[textlink.transactionAmount].toString());
                             bool isCredit = transaction[textlink.transactionIsCredited] ?? false;
-
-                            if (selectedTab == "ALL" ||
-                                (selectedTab == "CREDIT" && isCredit) ||
-                                (selectedTab == "DEBIT" && !isCredit)) {
                               if (isCredit) {
                                 creditSum += amount;
                               } else {
                                 debitSum += amount;
                               }
                             }
-                          }
                           double accountBalance = creditSum - debitSum;
 
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                            leading: CircleAvatar(
-                              backgroundColor: accountBalance >= 0 ? Colors.green : Colors.red,
-                              child: Text(
-                                accountName[0].toUpperCase(),
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          if (selectedTab == "ALL") {
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                              leading: CircleAvatar(
+                                backgroundColor: accountBalance >= 0 ? Colors.green : Colors.red,
+                                child: Text(
+                                  accountName[0].toUpperCase(),
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            ),
-                            title: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    accountName,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                    overflow: TextOverflow.ellipsis,  // Ensures text is truncated if it overflows
-                                  ),
-                                ),
-                                Text(
-                                  "${CurrencyManager.cr}${accountBalance.toStringAsFixed(2)}",
-                                  style: TextStyle(
-                                    color: accountBalance >= 0 ? Colors.green : Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            subtitle: Text(accountContact),
-                            trailing: PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert),
-                              onSelected: (value) async {
-                                if (value == 'edit') {
-                                  final shouldRefresh = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => AddAccount(
-                                        name: accountName,
-                                        contact: accountContact,
-                                        id: accountId.toString(),
-                                        email: account[textlink.accountEmail],
-                                        description: account[textlink.accountDescription],
-                                      ),
+                              title: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      accountName,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  );
-
-                                  if (shouldRefresh == true) {
-                                    setState(() {}); // Refresh account list after editing
-                                    calculateTotals(); // Recalculate totals after editing
-                                  }
-                                } else if (value == 'delete') {
-                                  final shouldDelete = await showDialog<bool>(
-                                    context: context,
-                                    builder: (BuildContext context) {
-                                      return AlertDialog(
-                                        title: const Text('Confirm Delete'),
-                                        content: const Text('Are you sure you want to delete this account?'),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.of(context).pop(false),
-                                            child: const Text('Cancel'),
-                                          ),
-                                          TextButton(
-                                            onPressed: () => Navigator.of(context).pop(true),
-                                            child: const Text('Delete'),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  );
-
-                                  if (shouldDelete == true) {
-                                    await FirebaseFirestore.instance
-                                        .collection(textlink.tblAccount)
-                                        .doc(accountId.toString())
-                                        .delete();
-
-                                    setState(() {}); // Refresh account list after deletion
-                                    calculateTotals(); // Recalculate totals after deletion
-                                  }
-                                }
-                              },
-                              itemBuilder: (BuildContext context) => [
-                                PopupMenuItem(
-                                  value: 'edit',
-                                  child: Row(
-                                    children: const [
-                                      Icon(Icons.edit, color: Colors.blue),
-                                      SizedBox(width: 8),
-                                      Text('Edit', style: TextStyle(fontSize: 16)),
-                                    ],
                                   ),
-                                ),
-                                PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: const [
-                                      Icon(Icons.delete, color: Colors.red),
-                                      SizedBox(width: 8),
-                                      Text('Delete', style: TextStyle(fontSize: 16)),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                  Text(
+                                    "${CurrencyManager.cr}${accountBalance.abs().toStringAsFixed(2)} ${accountBalance >= 0 ? 'CR' : 'DR'}",
+                                    style: TextStyle(
+                                      color: accountBalance >= 0 ? Colors.green : Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  )
+                                ],
                               ),
-                              elevation: 4,
-                            ),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => AccountData(
-                                    name: accountName,
-                                    id: accountId,
-                                    num: accountContact,
-                                  ),
-                                ),
-                              );
-                            },
-                          );
+                              subtitle: Text(accountContact),
+                              trailing: PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert),
+                                onSelected: (value) async {
+                                  if (value == 'edit') {
+                                    final shouldRefresh = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => AddAccount(
+                                          name: accountName,
+                                          contact: accountContact,
+                                          id: accountId.toString(),
+                                          email: account[textlink.accountEmail],
+                                          description: account[textlink.accountDescription],
+                                        ),
+                                      ),
+                                    );
 
+                                    if (shouldRefresh == true) {
+                                      setState(() {});
+                                      calculateTotals();
+                                    }
+                                  } else if (value == 'delete') {
+                                    final shouldDelete = await showDialog<bool>(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: const Text('Confirm Delete'),
+                                          content: const Text('Are you sure you want to delete this account?'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(false),
+                                              child: const Text('Cancel'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(true),
+                                              child: const Text('Delete'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+
+                                    if (shouldDelete == true) {
+                                      await FirebaseFirestore.instance
+                                          .collection(textlink.tblAccount)
+                                          .doc(accountId.toString())
+                                          .delete();
+
+                                      setState(() {});
+                                      calculateTotals();
+                                    }
+                                  }
+                                },
+                                itemBuilder: (BuildContext context) => [
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: Row(
+                                      children: const [
+                                        Icon(Icons.edit, color: Colors.blue),
+                                        SizedBox(width: 8),
+                                        Text('Edit', style: TextStyle(fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: const [
+                                        Icon(Icons.delete, color: Colors.red),
+                                        SizedBox(width: 8),
+                                        Text('Delete', style: TextStyle(fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 4,
+                              ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => AccountData(
+                                      name: accountName,
+                                      id: accountId,
+                                      num: accountContact,
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          }
+                          else if (selectedTab == "CREDIT" && accountBalance > 0) {
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                              leading: CircleAvatar(
+                                backgroundColor: accountBalance >= 0 ? Colors.green : Colors.red,
+                                child: Text(
+                                  accountName[0].toUpperCase(),
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              title: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      accountName,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Text(
+                                    "${CurrencyManager.cr}${accountBalance >= 0 ? accountBalance.toStringAsFixed(2) : accountBalance.abs().toStringAsFixed(2)} ${accountBalance >= 0 ? 'CR' : 'DR'}",
+                                    style: TextStyle(
+                                      color: accountBalance >= 0 ? Colors.green : Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  )
+
+                                ],
+                              ),
+                              subtitle: Text(accountContact),
+                              trailing: PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert),
+                                onSelected: (value) async {
+                                  if (value == 'edit') {
+                                    final shouldRefresh = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => AddAccount(
+                                          name: accountName,
+                                          contact: accountContact,
+                                          id: accountId.toString(),
+                                          email: account[textlink.accountEmail],
+                                          description: account[textlink.accountDescription],
+                                        ),
+                                      ),
+                                    );
+
+                                    if (shouldRefresh == true) {
+                                      setState(() {});
+                                      calculateTotals();
+                                    }
+                                  } else if (value == 'delete') {
+                                    final shouldDelete = await showDialog<bool>(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: const Text('Confirm Delete'),
+                                          content: const Text('Are you sure you want to delete this account?'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(false),
+                                              child: const Text('Cancel'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(true),
+                                              child: const Text('Delete'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+
+                                    if (shouldDelete == true) {
+                                      await FirebaseFirestore.instance
+                                          .collection(textlink.tblAccount)
+                                          .doc(accountId.toString())
+                                          .delete();
+
+                                      setState(() {});
+                                      calculateTotals();
+                                    }
+                                  }
+                                },
+                                itemBuilder: (BuildContext context) => [
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: Row(
+                                      children: const [
+                                        Icon(Icons.edit, color: Colors.blue),
+                                        SizedBox(width: 8),
+                                        Text('Edit', style: TextStyle(fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: const [
+                                        Icon(Icons.delete, color: Colors.red),
+                                        SizedBox(width: 8),
+                                        Text('Delete', style: TextStyle(fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 4,
+                              ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => AccountData(
+                                      name: accountName,
+                                      id: accountId,
+                                      num: accountContact,
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          }
+                          else if (selectedTab == "DEBIT" && accountBalance < 0)
+                          {
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                              leading: CircleAvatar(
+                                backgroundColor: accountBalance >= 0 ? Colors.green : Colors.red,
+                                child: Text(
+                                  accountName[0].toUpperCase(),
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              title: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      accountName,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Text(
+                                    "${CurrencyManager.cr}${accountBalance.abs().toStringAsFixed(2)} ${accountBalance >= 0 ? 'CR' : 'DR'}",
+                                    style: TextStyle(
+                                      color: accountBalance >= 0 ? Colors.green : Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  )
+
+                                ],
+                              ),
+                              subtitle: Text(accountContact),
+                              trailing: PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert),
+                                onSelected: (value) async {
+                                  if (value == 'edit') {
+                                    final shouldRefresh = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => AddAccount(
+                                          name: accountName,
+                                          contact: accountContact,
+                                          id: accountId.toString(),
+                                          email: account[textlink.accountEmail],
+                                          description: account[textlink.accountDescription],
+                                        ),
+                                      ),
+                                    );
+
+                                    if (shouldRefresh == true) {
+                                      setState(() {});
+                                      calculateTotals();
+                                    }
+                                  } else if (value == 'delete') {
+                                    final shouldDelete = await showDialog<bool>(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: const Text('Confirm Delete'),
+                                          content: const Text('Are you sure you want to delete this account?'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(false),
+                                              child: const Text('Cancel'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(true),
+                                              child: const Text('Delete'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+
+                                    if (shouldDelete == true) {
+                                      await FirebaseFirestore.instance
+                                          .collection(textlink.tblAccount)
+                                          .doc(accountId.toString())
+                                          .delete();
+
+                                      setState(() {});
+                                      calculateTotals();
+                                    }
+                                  }
+                                },
+                                itemBuilder: (BuildContext context) => [
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: Row(
+                                      children: const [
+                                        Icon(Icons.edit, color: Colors.blue),
+                                        SizedBox(width: 8),
+                                        Text('Edit', style: TextStyle(fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: const [
+                                        Icon(Icons.delete, color: Colors.red),
+                                        SizedBox(width: 8),
+                                        Text('Delete', style: TextStyle(fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 4,
+                              ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => AccountData(
+                                      name: accountName,
+                                      id: accountId,
+                                      num: accountContact,
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          }
+                          else {
+                            return SizedBox.shrink();  // Returns an empty widget if none of the conditions are met
+                          }
                         },
                       );
                     },

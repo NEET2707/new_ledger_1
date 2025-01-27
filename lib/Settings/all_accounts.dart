@@ -132,7 +132,7 @@ class _AllAccountsPageState extends State<AllAccountsPage> {
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         Text(
-                          "${CurrencyManager.cr} ${accountBalance.toStringAsFixed(2)}",
+                          "${CurrencyManager.cr} ${accountBalance.toStringAsFixed(2)} ${accountBalance >= 0 ? 'CR' : 'DR'}",
                           style: TextStyle(
                             color: accountBalance >= 0 ? Colors.green : Colors.red,
                             fontWeight: FontWeight.bold,
