@@ -3,14 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:new_ledger_1/transaction_search.dart';
-
-import '../account_data.dart';
 import '../Settings/settings.dart';
-import '../SharedPref/sharedpreferences.dart'; // For date formatting
-
-
-
-
+import '../SharedPref/sharedpreferences.dart';
+import '../colors.dart'; // For date formatting
 
 class AddTransaction extends StatefulWidget {
   final String? name;
@@ -19,7 +14,9 @@ class AddTransaction extends StatefulWidget {
   final String? amount;
   final String? date;
   final String? note;
-  final String? transactionId;  // Add transaction ID
+  final String? transactionId;
+  final String? reminderDate;
+  final bool? check;
 
   AddTransaction({
     super.key,
@@ -29,23 +26,27 @@ class AddTransaction extends StatefulWidget {
     this.amount,
     this.date,
     this.note,
-    this.transactionId,  // Receive transaction ID
+    this.transactionId,
+    this.reminderDate,
+    this.check,
   });
 
   @override
   State<AddTransaction> createState() => _AddTransactionState();
 }
 
-
 class _AddTransactionState extends State<AddTransaction> {
-
-  final TextEditingController transactionNoteController = TextEditingController();
+  final TextEditingController transactionNoteController =
+      TextEditingController();
   final TextEditingController accountNameController = TextEditingController();
-  final TextEditingController transactionAmountController = TextEditingController();
-  final TextEditingController transactionDateController = TextEditingController();
+  final TextEditingController transactionAmountController =
+      TextEditingController();
+  final TextEditingController transactionDateController =
+      TextEditingController();
 
   final amtcon = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final FocusNode amountFocusNode = FocusNode();
 
   DateTime _transactionDate = DateTime.now();
   DateTime? _reminderDate;
@@ -75,7 +76,8 @@ class _AddTransactionState extends State<AddTransaction> {
       int tnextId = await tgetNextId();
       if (tnextId == -1) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to generate transaction ID")));
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Failed to generate transaction ID")));
         }
         return;
       }
@@ -84,7 +86,8 @@ class _AddTransactionState extends State<AddTransaction> {
 
       if (currentUser == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("No user is logged in")));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text("No user is logged in")));
         }
         return;
       }
@@ -98,17 +101,24 @@ class _AddTransactionState extends State<AddTransaction> {
         textlink.transactionAccountId: selectedAccountId,
         'user_id': currentUser.uid,
         textlink.transactionIsDelete: false,
-        textlink.transactionReminderDate: _reminderDate != null ? _formatDate(_reminderDate!) : null,  // Save reminder date
+        textlink.transactionReminderDate: _reminderDate != null
+            ? _formatDate(_reminderDate!)
+            : null, // Save reminder date
       };
 
-      await FirebaseFirestore.instance.collection(textlink.tbltransaction).doc(tnextId.toString()).set(transactionData);
+      await FirebaseFirestore.instance
+          .collection(textlink.tbltransaction)
+          .doc(tnextId.toString())
+          .set(transactionData);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Transaction added successfully")));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Transaction added successfully")));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error adding transaction")));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Error adding transaction")));
       }
     }
   }
@@ -119,8 +129,7 @@ class _AddTransactionState extends State<AddTransaction> {
   getDataFromSPHelper() async {
     userId = await spHelper.getUserId();
     userEmail = await spHelper.getUserEmail();
-    setState(() {
-    });
+    setState(() {});
   }
 
   @override
@@ -128,20 +137,33 @@ class _AddTransactionState extends State<AddTransaction> {
     super.initState();
     getDataFromSPHelper();
 
-    if (widget.flag == true && widget.transactionId != null) {  // Editing mode
+    // Auto-focus on amount field
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      amountFocusNode.requestFocus();
+    });
+
+    if (widget.flag == true && widget.transactionId != null) {
       amtcon.text = widget.amount ?? '';
       transactionDateController.text = widget.date ?? '';
       transactionNoteController.text = widget.note ?? '';
+      if (widget.date != null) {
+        _transactionDate = DateFormat('dd MMM yyyy').parse(widget.date!);
+      }
+      if (widget.transactionId != null && widget.reminderDate != null) {
+        _reminderDate = DateFormat('dd MMM yyyy').parse(widget.reminderDate!);
+        _isReminderChecked = _reminderDate != null;
+      }
     }
 
     if (widget.name != null && widget.id != null) {
-      selectedAccountName = widget.name;
-      selectedAccountId = widget.id;
+      selectedAccountName = widget.name!;
+      selectedAccountId = widget.id!;
     }
   }
 
   @override
   void dispose() {
+    amountFocusNode.dispose();
     transactionNoteController.dispose();
     transactionDateController.dispose();
     amtcon.dispose();
@@ -153,7 +175,8 @@ class _AddTransactionState extends State<AddTransaction> {
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("No user is logged in")));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text("No user is logged in")));
         }
         return;
       }
@@ -166,7 +189,9 @@ class _AddTransactionState extends State<AddTransaction> {
         textlink.transactionAccountId: selectedAccountId,
         'user_id': currentUser.uid,
         textlink.transactionIsDelete: false,
-        textlink.transactionReminderDate: _reminderDate != null ? _formatDate(_reminderDate!) : null,  // Save reminder date
+        textlink.transactionReminderDate: _reminderDate != null
+            ? _formatDate(_reminderDate!)
+            : null, // Save reminder date
       };
 
       if (widget.transactionId != null) {
@@ -175,7 +200,8 @@ class _AddTransactionState extends State<AddTransaction> {
             .doc(widget.transactionId)
             .update(transactionData);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Transaction updated successfully")));
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Transaction updated successfully")));
         }
       } else {
         int tnextId = await tgetNextId();
@@ -185,7 +211,8 @@ class _AddTransactionState extends State<AddTransaction> {
             .doc(tnextId.toString())
             .set(transactionData);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Transaction added successfully")));
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Transaction added successfully")));
         }
       }
 
@@ -194,12 +221,11 @@ class _AddTransactionState extends State<AddTransaction> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error saving transaction")));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Error saving transaction")));
       }
     }
   }
-
-
 
   Future<void> _selectDate(BuildContext context, DateTime initialDate,
       Function(DateTime) onDateSelected) async {
@@ -222,18 +248,18 @@ class _AddTransactionState extends State<AddTransaction> {
         );
       },
     );
-    if (pickedDate != null && !pickedDate.isBefore(now)) { // Ensure the date is not in the past
+    if (pickedDate != null && !pickedDate.isBefore(now)) {
+      // Ensure the date is not in the past
       onDateSelected(pickedDate);
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Please select a date not earlier than today.")),
+          SnackBar(
+              content: Text("Please select a date not earlier than today.")),
         );
       }
     }
   }
-
-
 
   String _formatDate(DateTime date) {
     return DateFormat('dd MMM yyyy').format(date);
@@ -256,59 +282,68 @@ class _AddTransactionState extends State<AddTransaction> {
           key: _formKey,
           child: ListView(
             children: [
-              const Text("Account Name", style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text("Account Name",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-
               InkWell(
                 onTap: () {
-                  if(widget.flag != true){
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => SearchPage(userId: userId.toString(),)))
-                        .then((result) {
+                  if (widget.flag != true) {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => SearchPage(
+                                  userId: userId.toString(),
+                                ))).then((result) {
                       if (result != null) {
                         // Extract and store the result in variables
                         selectedAccountName = result['name'];
                         selectedAccountId = result['id'];
-                        setState(() {
-
-                        });
+                        setState(() {});
                       }
                     });
                   }
-
-
                 },
-
-
                 child: Container(
                   height: 50,
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  padding:  EdgeInsets.symmetric(horizontal: 16),
-                  child:  Align(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      selectedAccountName!=null ? selectedAccountName.toString() : "Select Account",
+                      selectedAccountName != null
+                          ? selectedAccountName.toString()
+                          : "Select Account",
                       style: TextStyle(fontSize: 16),
                     ),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text("Transaction", style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text("Transaction",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                     child: TextFormField(
                       controller: amtcon,
+                      focusNode: amountFocusNode, // Add this line
                       decoration: const InputDecoration(
                         hintText: 'Amount',
                         border: OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter the amount'; // Validation message for empty Name field
+                        }
+                        return null;
+                      },
                     ),
+
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -331,28 +366,44 @@ class _AddTransactionState extends State<AddTransaction> {
                 ],
               ),
               const SizedBox(height: 16),
-              const Text("Reminder Transaction", style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text("Reminder Transaction",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Checkbox(
-                    value: _isReminderChecked,
-                    onChanged: (value) {
-                      setState(() {
-                        _isReminderChecked = value ?? false;
-                      });
-                    },
-                  ),
                   GestureDetector(
                     onTap: () {
                       setState(() {
                         _isReminderChecked = !_isReminderChecked;
+                        if (!_isReminderChecked) {
+                          _reminderDate = null; // Clear the reminder date if unchecked
+                        }
                       });
                     },
-                    child: const Text("Due Reminder"),
+                    child: Container(
+                      height: 40,
+                      width: 150,
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: _isReminderChecked,
+                            onChanged: (value) {
+                              setState(() {
+                                _isReminderChecked = value ?? false;
+                                if (!_isReminderChecked) {
+                                  _reminderDate = null;
+                                }
+                              });
+                            },
+                          ),
+                          const Text("Due Reminder"),
+                        ],
+                      ),
+                    ),
                   ),
                   const Spacer(),
-                  Expanded(
+                  Container(
+                    width: 155,
                     child: GestureDetector(
                       onTap: _isReminderChecked
                           ? () {
@@ -376,16 +427,18 @@ class _AddTransactionState extends State<AddTransaction> {
                               ? _formatDate(_reminderDate!)
                               : "Select Date",
                           style: TextStyle(
-                            color: _isReminderChecked ? Colors.black : Colors.grey,
+                            color:
+                            _isReminderChecked ? Colors.black : Colors.grey,
                           ),
                         ),
                       ),
                     ),
-                  ),
+                  )
                 ],
               ),
               const SizedBox(height: 16),
-              const Text("Transaction Note", style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text("Transaction Note",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               TextFormField(
                 controller: transactionNoteController,
@@ -394,45 +447,81 @@ class _AddTransactionState extends State<AddTransaction> {
                   border: OutlineInputBorder(),
                 ),
               ),
-
               const SizedBox(height: 32),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState?.validate() ?? false) {
-                          if (widget.flag == true) {  // Use widget.flag to access the flag property
-                            _saveTransaction(false);
-                          } else {
-                            _addTransaction(false);
-                          }
-                          Navigator.pop(context, true);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                      child: const Text("DEBIT",style: TextStyle(color: Colors.white),),
-                    ),
+              if (widget.flag == true)
+                ElevatedButton(
+                  onPressed: () async {
+                    await _saveTransaction(widget.check!);
+                  },
+                  child: Text(
+                    "Save",
+                    style: TextStyle(color: Colors.white),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState?.validate() ?? false) {
-                          if (widget.flag == true) {  // Use widget.flag to access the flag property
-                            _saveTransaction(true);
-                          } else {
-                            _addTransaction(true);
-                          }
-                          Navigator.pop(context, true);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                      child: const Text("CREDIT",style: TextStyle(color: Colors.white),),
-                    ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        themecolor,
                   ),
-                ],
-              ),
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          if (_formKey.currentState?.validate() ?? false) {
+                            if (_isReminderChecked && _reminderDate == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text("Please select a reminder date."),
+                                ),
+                              );
+                              return; // Prevent further execution
+                            }
+                            if (widget.flag == true) {
+                              _saveTransaction(false);
+                            } else {
+                              _addTransaction(false);
+                            }
+                            Navigator.pop(context, true);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red),
+                        child: const Text("DEBIT",
+                            style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          if (_formKey.currentState?.validate() ?? false) {
+                            if (_isReminderChecked && _reminderDate == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text("Please select a reminder date."),
+                                ),
+                              );
+                              return; // Prevent further execution
+                            }
+                            if (widget.flag == true) {
+                              _saveTransaction(true);
+                            } else {
+                              _addTransaction(true);
+                            }
+                            Navigator.pop(context, true);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green),
+                        child: const Text("CREDIT",
+                            style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),

@@ -17,7 +17,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _showSplashScreen() async {
-    await Future.delayed(Duration(seconds: 5));
+    await Future.delayed(Duration(seconds: 1));
 
     String? savedPin = await SharedPreferenceHelper.get(prefKey: PrefKey.pin);
 
