@@ -128,6 +128,7 @@ class _AddAccountState extends State<AddAccount> {
             children: [
               TextFormField(
                 controller: accountNameController,
+                textCapitalization: TextCapitalization.sentences, // Capitalizes the first character
                 decoration: const InputDecoration(
                   labelText: 'Name *', // Add asterisk to indicate required field
                   border: OutlineInputBorder(),
@@ -150,9 +151,7 @@ class _AddAccountState extends State<AddAccount> {
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter the account contact number'; // Validation message for empty Mobile field
-                  } else if (value.length != 10) {
-                    return 'Mobile number must be exactly 10 digits';
-                  } else if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                  }  else if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
                     return 'Mobile number must contain only digits'; // Validation for non-numeric characters
                   }
                   return null;

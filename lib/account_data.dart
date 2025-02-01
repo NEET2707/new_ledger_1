@@ -351,10 +351,25 @@ class _AccountDataState extends State<AccountData>
                               leading: const Icon(Icons.delete),
                               title: const Text("Delete Account"),
                               onTap: () async{
-                                  await FirebaseFirestore.instance
-                                      .collection(textlink.tblAccount)
-                                      .doc(widget.id.toString())
-                                      .delete();
+                                QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+                                    .collection(textlink.tbltransaction)
+                                    .where(textlink.transactionAccountId, isEqualTo: widget.id)
+                                    .get();
+
+                                if (querySnapshot.docs.isEmpty) {
+                                  // print("⚠️ No matching documents found for accountId: $accountId");
+                                } else {
+                                  for (var doc in querySnapshot.docs) {
+                                    print("📄 Found document: ${doc.id} - Reference: ${doc.reference}");
+                                    await doc.reference.delete();
+                                    print("✅ Deleted document: ${doc.id}");
+                                  }
+                                }
+
+                                await FirebaseFirestore.instance
+                                    .collection(textlink.tblAccount)
+                                    .doc(widget.id.toString())
+                                    .delete();
 
                                   setState(() {});
                                 Navigator.pop(context);

@@ -248,18 +248,20 @@ class _AddTransactionState extends State<AddTransaction> {
         );
       },
     );
-    if (pickedDate != null && !pickedDate.isBefore(now)) {
-      // Ensure the date is not in the past
+
+    if (pickedDate != null) {
+      // Allow any date, including today
       onDateSelected(pickedDate);
     } else {
+      // No date selected, so no action is performed
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text("Please select a date not earlier than today.")),
+          SnackBar(content: Text("Please select a valid date.")),
         );
       }
     }
   }
+
 
   String _formatDate(DateTime date) {
     return DateFormat('dd MMM yyyy').format(date);
