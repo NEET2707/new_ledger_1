@@ -82,9 +82,6 @@ class _HomePageState extends State<Home> {
         totalAccountBalance = creditSum - debitSum;
       });
 
-      print("Total Credit: $totalCredit");
-      print("Total Debit: $totalDebit");
-      print("Total Account Balance: $totalAccountBalance");
 
     } catch (e) {
       print("Error: $e");
@@ -633,58 +630,60 @@ class _HomePageState extends State<Home> {
 
         final accounts = accountSnapshot.data!.docs;
 
-        return FutureBuilder<List<Map<String, dynamic>>>(
-          future: _getFilteredAccounts(accounts, true),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
-            }
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return Center(child: Text("No accounts with a positive balance."));
-            }
+        return buildRefreshIndicator(
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: _getFilteredAccounts(accounts, true),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return Center(child: Text("No accounts with a positive balance."));
+              }
 
-            final filteredAccounts = snapshot.data!;
+              final filteredAccounts = snapshot.data!;
 
-            return ListView.separated(
-              itemCount: filteredAccounts.length,
-              separatorBuilder: (context, index) => Divider(height: 1),
-              itemBuilder: (context, index) {
-                final account = filteredAccounts[index];
-                final accountId = account[textlink.accountId];
-                final accountName = account[textlink.accountName];
-                final accountContact = account[textlink.accountContact];
-                final accountBalance = account['balance'];
+              return ListView.separated(
+                itemCount: filteredAccounts.length,
+                separatorBuilder: (context, index) => Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final account = filteredAccounts[index];
+                  final accountId = account[textlink.accountId];
+                  final accountName = account[textlink.accountName];
+                  final accountContact = account[textlink.accountContact];
+                  final accountBalance = account['balance'];
 
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.green,
-                    child: Text(
-                      accountName[0].toUpperCase(),
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  title: Text(accountName, style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(accountContact),
-                  trailing: Text(
-                    "${CurrencyManager.cr}${accountBalance.toStringAsFixed(2)} CR",
-                    style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AccountData(
-                          name: accountName,
-                          id: accountId,
-                          num: accountContact,
-                        ),
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.green,
+                      child: Text(
+                        accountName[0].toUpperCase(),
+                        style: TextStyle(color: Colors.white),
                       ),
-                    );
-                  },
-                );
-              },
-            );
-          },
+                    ),
+                    title: Text(accountName, style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(accountContact),
+                    trailing: Text(
+                      "${CurrencyManager.cr}${accountBalance.toStringAsFixed(2)} CR",
+                      style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AccountData(
+                            name: accountName,
+                            id: accountId,
+                            num: accountContact,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
         );
       },
     );
@@ -706,103 +705,100 @@ class _HomePageState extends State<Home> {
 
         final accounts = accountSnapshot.data!.docs;
 
-        return FutureBuilder<List<Map<String, dynamic>>>(
-          future: _getFilteredAccounts(accounts, false),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
-            }
+        return buildRefreshIndicator(
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: _getFilteredAccounts(accounts, false),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
+              }
 
-            final filteredAccounts = snapshot.data ?? [];
+              final filteredAccounts = snapshot.data ?? [];
 
-            if (filteredAccounts.isEmpty) {
-              return Center(child: Text("No debited accounts available."));
-            }
+              if (filteredAccounts.isEmpty) {
+                return Center(child: Text("No debited accounts available."));
+              }
 
-            return ListView.separated(
-              itemCount: filteredAccounts.length,
-              separatorBuilder: (context, index) => Divider(height: 1),
-              itemBuilder: (context, index) {
-                final account = filteredAccounts[index];
-                final accountId = account[textlink.accountId];
-                final accountName = account[textlink.accountName];
-                final accountContact = account[textlink.accountContact];
-                final accountBalance = account['balance'];
+              return ListView.separated(
+                itemCount: filteredAccounts.length,
+                separatorBuilder: (context, index) => Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final account = filteredAccounts[index];
+                  final accountId = account[textlink.accountId];
+                  final accountName = account[textlink.accountName];
+                  final accountContact = account[textlink.accountContact];
+                  final accountBalance = account['balance'];
 
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.red,
-                    child: Text(accountName[0].toUpperCase(), style: TextStyle(color: Colors.white)),
-                  ),
-                  title: Text(accountName, style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(accountContact),
-                  trailing: Text(
-                    "${CurrencyManager.cr}${(accountBalance ?? 0.0).abs().toStringAsFixed(2)} ${accountBalance != null && accountBalance < 0 ? 'CR' : 'DR'}",
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.red,
+                      child: Text(accountName[0].toUpperCase(), style: TextStyle(color: Colors.white)),
                     ),
-                  ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AccountData(
-                          name: accountName,
-                          id: accountId,
-                          num: accountContact,
-                        ),
+                    title: Text(accountName, style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(accountContact),
+                    trailing: Text(
+                      "${CurrencyManager.cr}${(accountBalance ?? 0.0).abs().toStringAsFixed(2)} ${accountBalance != null && accountBalance < 0 ? 'CR' : 'DR'}",
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
                       ),
-                    );
-                  },
-                );
-              },
-            );
-          },
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AccountData(
+                            name: accountName,
+                            id: accountId,
+                            num: accountContact,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
         );
       },
     );
   }
 
   Future<List<Map<String, dynamic>>> _getFilteredAccounts(List<QueryDocumentSnapshot> accounts, bool isCredit) async {
-    final filteredAccounts = <Map<String, dynamic>>[];
+    if (accounts.isEmpty) return [];
 
-    for (var account in accounts) {
-      final accountId = account[textlink.accountId];
-      final accountName = account[textlink.accountName];
-      final accountContact = account[textlink.accountContact];
+    // Fetch all transactions for the given accounts in a single query
+    final transactionSnapshot = await FirebaseFirestore.instance
+        .collection(textlink.tbltransaction)
+        .where("user_id", isEqualTo: _auth.currentUser?.uid)
+        .where(textlink.accountId, whereIn: accounts.map((a) => a[textlink.accountId]).toList())
+        .get();
 
-      final transactionSnapshot = await FirebaseFirestore.instance
-          .collection(textlink.tbltransaction)
-          .where("user_id", isEqualTo: _auth.currentUser?.uid)
-          .where(textlink.accountId, isEqualTo: accountId)
-          .get();
+    // Store balances for each account
+    final accountBalances = <String, double>{};
 
-      double creditSum = 0.0;
-      double debitSum = 0.0;
+    for (var transaction in transactionSnapshot.docs) {
+      String accountId = transaction[textlink.accountId].toString();
+      double amount = double.parse(transaction[textlink.transactionAmount].toString());
+      bool isCreditTransaction = transaction[textlink.transactionIsCredited] ?? false;
 
-      for (var transaction in transactionSnapshot.docs) {
-        double amount = double.parse(transaction[textlink.transactionAmount].toString());
-        bool isCreditTransaction = transaction[textlink.transactionIsCredited] ?? false;
-        if (isCreditTransaction) {
-          creditSum += amount;
-        } else {
-          debitSum += amount;
-        }
-      }
-
-      double accountBalance = creditSum - debitSum;
-
-      if ((isCredit && accountBalance > 0) || (!isCredit && accountBalance < 0)) {
-        filteredAccounts.add({
-          textlink.accountId: accountId,
-          textlink.accountName: accountName,
-          textlink.accountContact: accountContact,
-          'balance': accountBalance,
-        });
-      }
+      accountBalances[accountId] = (accountBalances[accountId] ?? 0) + (isCreditTransaction ? amount : -amount);
     }
+
+    // Filter accounts based on balance
+    final filteredAccounts = accounts.where((account) {
+      double balance = accountBalances[account[textlink.accountId].toString()] ?? 0;
+      return isCredit ? balance > 0 : balance < 0;
+    }).map((account) {
+      return {
+        textlink.accountId: account[textlink.accountId],
+        textlink.accountName: account[textlink.accountName],
+        textlink.accountContact: account[textlink.accountContact],
+        'balance': accountBalances[account[textlink.accountId].toString()] ?? 0,
+      };
+    }).toList();
 
     return filteredAccounts;
   }

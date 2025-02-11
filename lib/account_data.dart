@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:new_ledger_1/Settings/settings.dart';
 import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import 'ADD/add_account.dart';
 import 'ADD/add_transaction.dart';
 import 'Settings/change_currency_page.dart';
@@ -152,8 +153,7 @@ class _AccountDataState extends State<AccountData>
                               leading: const Icon(Icons.share),
                               title: const Text("Share Transaction"),
                               onTap: () {
-                                Navigator.pop(
-                                    context); // Close the bottom sheet
+                                Navigator.pop(context); // Close the bottom sheet
 
                                 String message =
                                     "Account Name: ${widget.name}\n"
@@ -161,14 +161,10 @@ class _AccountDataState extends State<AccountData>
                                     "Total Credit: ${totalCredit.toStringAsFixed(2)}\n"
                                     "Total Debit: ${totalDebit.toStringAsFixed(2)}\n";
 
-                                String phoneNumber = widget.num;
-
-                                String url =
-                                    "https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}";
-
-                                _launchUrl(url);
+                                Share.share(message);
                               },
                             ),
+
                             ListTile(
                               leading: const Icon(Icons.download),
                               title: const Text("Download Transaction Pdf"),
