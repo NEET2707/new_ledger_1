@@ -2,8 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:new_ledger_1/ADD/add_account.dart';
-import 'package:new_ledger_1/colors.dart';
 import 'ADD/add_transaction.dart';
 import 'Settings/change_currency_page.dart';
 import 'Settings/settings.dart';

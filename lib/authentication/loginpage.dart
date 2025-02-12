@@ -21,24 +21,20 @@ class _LoginPageState extends State<LoginPage> {
   final SharedPreferenceHelper spHelper = SharedPreferenceHelper();
   bool _passwordVisible = false;
 
-  // Move the GoogleSignIn instance here
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   void _login() async {
     try {
-      // Authenticate the user with Firebase
       await _auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // Save the user email in SharedPreferences
       await SharedPreferenceHelper.save(
         value: _emailController.text.trim(),
         prefKey: PrefKey.userEmail,
       );
 
-      // Query Firestore for user data
       QuerySnapshot querySnapshot = await FirebaseFirestore.instance
           .collection("users")
           .where('email', isEqualTo: _emailController.text.trim())
@@ -48,13 +44,11 @@ class _LoginPageState extends State<LoginPage> {
         DocumentSnapshot userDoc = querySnapshot.docs.first;
         String uid = userDoc["uid"];
 
-        // Save the user ID in SharedPreferences
         await SharedPreferenceHelper.save(
           value: uid,
           prefKey: PrefKey.userId,
         );
 
-        // Navigate to the Home screen
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => Home()),
@@ -65,7 +59,6 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
     } catch (e) {
-      // Display an error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
       );
@@ -76,7 +69,6 @@ class _LoginPageState extends State<LoginPage> {
     try {
       print('Starting Google Sign-In');
 
-      // Sign out first to ensure the account picker appears
       await _googleSignIn.signOut();
 
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
@@ -97,7 +89,6 @@ class _LoginPageState extends State<LoginPage> {
       final User? user = userCredential.user;
 
       if (user != null) {
-        // Save user data to SharedPreferences
         await SharedPreferenceHelper.save(
           value: user.email ?? '',
           prefKey: PrefKey.userEmail,
@@ -107,7 +98,6 @@ class _LoginPageState extends State<LoginPage> {
           prefKey: PrefKey.userId,
         );
 
-        // Check if user exists in Firestore
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection("users")
             .doc(user.uid)
@@ -247,7 +237,7 @@ class _LoginPageState extends State<LoginPage> {
             SizedBox(height: 10),
             TextButton(
               style: TextButton.styleFrom(
-                backgroundColor: Colors.transparent, // Set background color to white like Google's sign-in button
+                backgroundColor: Colors.transparent,
 
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Button padding
               ),
@@ -255,7 +245,6 @@ class _LoginPageState extends State<LoginPage> {
                 User? user = await signInWithGoogle();
                 if (user != null) {
                   print('Signed in as: ${user.displayName}');
-                  // Handle user info here (navigate, display user data, etc.)
                 } else {
                   print('Sign-in failed or was canceled');
                 }
@@ -264,10 +253,10 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Image.asset(
-                    'assets/image/google.png', // Add a Google logo image to your assets
-                    height: 24, // Adjust size
+                    'assets/image/google.png',
+                    height: 24,
                   ),
-                  SizedBox(width: 8), // Add spacing between the logo and text
+                  SizedBox(width: 8),
                   Text(
                     'Sign in with Google',
                     style: TextStyle(

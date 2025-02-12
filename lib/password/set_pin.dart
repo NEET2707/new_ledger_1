@@ -18,7 +18,6 @@ class _SetPinScreenState extends State<SetPinScreen> {
   String pin = '';
   String confirmPin = '';
 
-  // Save the PIN securely
   Future<void> _savePin(String pin) async {
     await SharedPreferenceHelper.save(prefKey: PrefKey.pin, value: pin);
   }
@@ -91,7 +90,6 @@ class _SetPinScreenState extends State<SetPinScreen> {
               ),
               SizedBox(height: 20),
 
-              // Confirm PIN Input
               TextFormField(
                 controller: confirmPinController,
                 obscureText: true,

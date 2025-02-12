@@ -74,7 +74,6 @@ class _SearchPageState extends State<SearchPage> {
                   return const Center(child: Text("No results found"));
                 }
 
-                // Map and display the results
                 final accounts = snapshot.data!.docs;
 
                 return ListView.builder(

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
+import 'package:intl/intl.dart';
 import 'package:new_ledger_1/reminder.dart';
 import 'ADD/add_account.dart';
 import 'ADD/add_transaction.dart';
@@ -33,6 +34,10 @@ class _HomePageState extends State<Home> {
     setState(() {
       hasDueTransactions = hasDue;
     });
+
+    if (!hasDue) {
+      checkDueReminders();
+    }
   }
 
   @override
@@ -40,6 +45,57 @@ class _HomePageState extends State<Home> {
     super.initState();
     calculateTotals();
     fetchUserData();
+    checkDueReminders();
+  }
+
+  Future<void> checkDueReminders() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection(textlink.tbltransaction)
+        .where('user_id', isEqualTo: currentUser.uid)
+        .where(textlink.transactionReminderDate,
+            isNotEqualTo: null) // Ensure only non-null values
+        .get();
+
+    DateTime now = DateTime.now();
+    String todayDate = DateFormat('yyyy-MM-dd').format(now);
+
+    bool dueFound = querySnapshot.docs.any((transaction) {
+      final reminderDateStr = transaction[textlink.transactionReminderDate];
+
+      if (reminderDateStr == null ||
+          reminderDateStr.toString().trim().isEmpty) {
+        return false;
+      }
+
+      DateTime? reminderDate = parseReminderDate(reminderDateStr.toString());
+      return reminderDate != null &&
+          DateFormat('yyyy-MM-dd').format(reminderDate) == todayDate;
+    });
+
+    if (mounted) {
+      setState(() {
+        hasDueTransactions = dueFound;
+      });
+    }
+  }
+
+  DateTime? parseReminderDate(String dateStr) {
+    try {
+      return DateFormat("dd MMM yyyy").parse(dateStr);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  DateTime? parseReminderDateInHome(String dateStr) {
+    try {
+      return DateFormat("dd MMM yyyy").parse(dateStr);
+    } catch (e) {
+      return null;
+    }
   }
 
   Future<void> fetchUserData() async {
@@ -66,7 +122,8 @@ class _HomePageState extends State<Home> {
       double debitSum = 0.0;
 
       for (var transaction in transactionSnapshot.docs) {
-        double amount = double.parse(transaction[textlink.transactionAmount].toString());
+        double amount =
+            double.parse(transaction[textlink.transactionAmount].toString());
         bool isCredit = transaction[textlink.transactionIsCredited] ?? false;
 
         if (isCredit) {
@@ -76,13 +133,15 @@ class _HomePageState extends State<Home> {
         }
       }
 
-      setState(() {
-        totalCredit = creditSum;
-        totalDebit = debitSum;
-        totalAccountBalance = creditSum - debitSum;
-      });
+      if (mounted) {
+        setState(() {
+          totalCredit = creditSum;
+          totalDebit = debitSum;
+          totalAccountBalance = creditSum - debitSum;
+        });
 
-
+        checkDueReminders();
+      }
     } catch (e) {
       print("Error: $e");
     }
@@ -102,7 +161,8 @@ class _HomePageState extends State<Home> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("No phone number found for the selected contact.")),
+          SnackBar(
+              content: Text("No phone number found for the selected contact.")),
         );
       }
     } else {
@@ -112,7 +172,8 @@ class _HomePageState extends State<Home> {
     }
   }
 
-  addData(String PaccountName, String PaccountContact, String PaccountEmail, String PaccountDescription) async {
+  addData(String PaccountName, String PaccountContact, String PaccountEmail,
+      String PaccountDescription) async {
     if (PaccountName.isEmpty || PaccountContact.isEmpty) {
       return;
     }
@@ -121,7 +182,10 @@ class _HomePageState extends State<Home> {
     User? user = FirebaseAuth.instance.currentUser;
 
     if (user != null) {
-      await FirebaseFirestore.instance.collection(textlink.tblAccount).doc(nextId.toString()).set({
+      await FirebaseFirestore.instance
+          .collection(textlink.tblAccount)
+          .doc(nextId.toString())
+          .set({
         textlink.accountName: PaccountName,
         textlink.accountContact: PaccountContact,
         textlink.accountId: nextId,
@@ -133,7 +197,8 @@ class _HomePageState extends State<Home> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => AccountData(name: PaccountName, id: nextId, num: PaccountContact),
+          builder: (context) =>
+              AccountData(name: PaccountName, id: nextId, num: PaccountContact),
         ),
       );
     }
@@ -182,225 +247,238 @@ class _HomePageState extends State<Home> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-        length: 3,
-        child: Scaffold(
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            backgroundColor: themecolor,
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Image.asset(
-                      'assets/image/logo.png',
-                      width: 50,
-                      height: 80,
-                      color: Colors.white,
-                    ),
-                    SizedBox(width: 10),
-                    Flexible(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: themecolor,
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Image.asset(
+                    'assets/image/logo.png',
+                    width: 50,
+                    height: 80,
+                    color: Colors.white,
+                  ),
+                  SizedBox(width: 10),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Ledger Book",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                        if (userData != null)
                           Text(
-                            "Ledger Book",
+                            "${userData!['email']}",
                             style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
+                              color: Colors.white70,
+                              fontSize: 12,
                             ),
                           ),
-                          if (userData != null)
-                            Text(
-                              "${userData!['email']}",
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            actions: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) =>
-                          ReminderPage(onDueTransactionsChanged: _onDueTransactionsChanged)));
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                      child: Stack(
-                        children: [
-                          Icon(Icons.notification_add, color: Colors.white),
-                          if (hasDueTransactions)
-                            Positioned(
-                              right: 0,
-                              child: Container(
-                                padding: EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                constraints: BoxConstraints(
-                                  minWidth: 12,
-                                  minHeight: 12,
-                                ),
-                                child: Text(
-                                  '!',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+                      ],
                     ),
                   ),
-                  GestureDetector(
-                    onTap: _showContacts,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                      child: Icon(Icons.contact_page, color: Colors.white),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _navigateToSecondPage,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                      child: Icon(Icons.settings, color: Colors.white),
-                    ),
-                  ),
-                  // IconButton(
-                  //   icon: Icon(Icons.refresh, color: Colors.white),
-                  //   onPressed: () async {
-                  //     await calculateTotals();
-                  //     setState(() {});
-                  //   },
-                  // ),
                 ],
               ),
             ],
           ),
-          body: Stack(
-            children: [
-              SingleChildScrollView(
-                physics: AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  children: [
-                    Container(
-                      color: Colors.blueAccent,
-                      padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Current A/C:",
-                            style: TextStyle(fontSize: 16, color: Colors.white),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            "${CurrencyManager.cr}${totalAccountBalance.abs().toStringAsFixed(2)} ${totalAccountBalance >= 0 ? 'CR' : 'DR'}",
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+          actions: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => ReminderPage(
+                                onDueTransactionsChanged:
+                                    _onDueTransactionsChanged)));
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                    child: Stack(
+                      children: [
+                        Icon(Icons.notification_add, color: Colors.white),
+                        if (hasDueTransactions)
+                          Positioned(
+                            right: 0,
+                            child: Container(
+                              padding: EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              constraints: BoxConstraints(
+                                minWidth: 12,
+                                minHeight: 12,
+                              ),
+                              child: Text(
+                                '!',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
                           ),
-                          SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              _buildSummaryItem(Icons.arrow_upward_rounded, "${CurrencyManager.cr}${totalCredit.toStringAsFixed(2)} Credit", Colors.green),
-                              _buildSummaryItem(Icons.arrow_downward_rounded, "${CurrencyManager.cr}${totalDebit.toStringAsFixed(2)} Debit", Colors.red),
-                            ],
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                    Container(
-                      color: Colors.blueAccent,
-                      child: TabBar(
-                        labelColor: Colors.white,
-                        unselectedLabelColor: Colors.white70,
-                        indicatorColor: Colors.white,
-                        tabs: [
-                          Tab(text: "ALL"),
-                          Tab(text: "CREDIT"),
-                          Tab(text: "DEBIT"),
-                        ],
-                      ),
-                    ),
-                    SizedBox(
-                      height: MediaQuery.of(context).size.height - kToolbarHeight - kBottomNavigationBarHeight - 150, // Adjust as needed
-                      child: TabBarView(
-                        children: [
-                          _buildAllTab(),
-                          _buildCreditTab(),
-                          _buildDebitTab(),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              Positioned(
-                bottom: 0,
-                right: 12,
-                child: SpeedDial(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  icon: Icons.add,
-                  children: [
-                    SpeedDialChild(
-                      child: Icon(Icons.account_balance_wallet, color: Colors.black),
-                      backgroundColor: Colors.white,
-                      label: 'Add Transaction',
-                      onTap: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => AddTransaction()),
-                        );
-    
-                        if (result == true) {
-                          calculateTotals();
-                          setState(() {});
-                        }
-                      },
-                    ),
-                    SpeedDialChild(
-                      child: Icon(Icons.person_add, color: Colors.black),
-                      backgroundColor: Colors.white,
-                      label: 'Add Account',
-                      onTap: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => AddAccount(name: 'none', contact: 'none', id: '0')),
-                        );
-                        if (result == true) calculateTotals();
-                      },
-                    ),
-                  ],
+                GestureDetector(
+                  onTap: _showContacts,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                    child: Icon(Icons.contact_page, color: Colors.white),
+                  ),
                 ),
-              ),
-            ],
-          ),
+                GestureDetector(
+                  onTap: _navigateToSecondPage,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                    child: Icon(Icons.settings, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-      );
+        body: Stack(
+          children: [
+            SingleChildScrollView(
+              physics: AlwaysScrollableScrollPhysics(),
+              child: Column(
+                children: [
+                  Container(
+                    color: Colors.blueAccent,
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Current A/C:",
+                          style: TextStyle(fontSize: 16, color: Colors.white),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          "${CurrencyManager.cr}${totalAccountBalance.abs().toStringAsFixed(2)} ${totalAccountBalance >= 0 ? 'CR' : 'DR'}",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildSummaryItem(
+                                Icons.arrow_upward_rounded,
+                                "${CurrencyManager.cr}${totalCredit.toStringAsFixed(2)} Credit",
+                                Colors.green),
+                            _buildSummaryItem(
+                                Icons.arrow_downward_rounded,
+                                "${CurrencyManager.cr}${totalDebit.toStringAsFixed(2)} Debit",
+                                Colors.red),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    color: Colors.blueAccent,
+                    child: TabBar(
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.white70,
+                      indicator: BoxDecoration(
+                        color: Colors.blue,
+                        borderRadius: BorderRadius.circular(8), // Optional: rounded corners
+                      ),
+                      tabs: [
+                        Tab(text: "ALL"),
+                        Tab(text: "CREDIT"),
+                        Tab(text: "DEBIT"),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height -
+                        kToolbarHeight -
+                        kBottomNavigationBarHeight -
+                        150, // Adjust as needed
+                    child: TabBarView(
+                      children: [
+                        _buildAllTab(),
+                        _buildCreditTab(),
+                        _buildDebitTab(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              bottom: 0,
+              right: 12,
+              child: SpeedDial(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                icon: Icons.add,
+                children: [
+                  SpeedDialChild(
+                    child:
+                        Icon(Icons.account_balance_wallet, color: Colors.black),
+                    backgroundColor: Colors.white,
+                    label: 'Add Transaction',
+                    onTap: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => AddTransaction()),
+                      );
+
+                      if (result == true) {
+                        calculateTotals();
+                        setState(() {});
+                      }
+                    },
+                  ),
+                  SpeedDialChild(
+                    child: Icon(Icons.person_add, color: Colors.black),
+                    backgroundColor: Colors.white,
+                    label: 'Add Account',
+                    onTap: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => AddAccount(
+                                name: 'none', contact: 'none', id: '0')),
+                      );
+                      if (result == true) calculateTotals();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildSummaryItem(IconData icon, String label, Color iconColor) {
@@ -409,7 +487,8 @@ class _HomePageState extends State<Home> {
         Container(
           height: 32,
           width: 32,
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+          decoration: BoxDecoration(
+              color: Colors.white, borderRadius: BorderRadius.circular(14)),
           child: Icon(icon, color: iconColor, size: 24),
         ),
         SizedBox(width: 8),
@@ -419,198 +498,218 @@ class _HomePageState extends State<Home> {
   }
 
   Widget _buildAllTab() {
-    return  buildRefreshIndicator(
+    return RefreshIndicator(
+      onRefresh: () async {
+        // await calculateTotals();
+        setState(() {}); // Only refresh tab content
+      },
       child: Padding(
           padding: EdgeInsets.only(bottom: 30.0),
           child: StreamBuilder(
-              stream: FirebaseFirestore.instance
-                  .collection(textlink.tblAccount)
-                  .where("userId", isEqualTo: _auth.currentUser?.uid)
-                  .snapshots(),
-              builder: (context, accountSnapshot) {
-                // if (accountSnapshot.connectionState == ConnectionState.waiting) {
-                //   return Center(child: CircularProgressIndicator());
-                // }
-      
-                if (!accountSnapshot.hasData || accountSnapshot.data!.docs.isEmpty) {
-                  return Center(child: Text("No accounts available."));
-                }
-      
-                final accounts = accountSnapshot.data!.docs;
-      
-                return ListView.separated(
-                  itemCount: accounts.length,
-                  separatorBuilder: (context, index) => Divider(),
-                  itemBuilder: (context, index) {
-                    final account = accounts[index];
-                    final accountId = account[textlink.accountId];
-                    final accountName = account[textlink.accountName];
-                    final accountContact = account[textlink.accountContact];
-      
-                    return StreamBuilder(
-                      stream: FirebaseFirestore.instance
-                          .collection(textlink.tbltransaction)
-                          .where("user_id", isEqualTo: _auth.currentUser?.uid)
-                          .where(textlink.accountId, isEqualTo: accountId)
-                          .snapshots(),
-                      builder: (context, transactionSnapshot) {
-                        if (transactionSnapshot.connectionState == ConnectionState.waiting) {
-                          return ListTile(title: Text("Loading..."));
+            stream: FirebaseFirestore.instance
+                .collection(textlink.tblAccount)
+                .where("userId", isEqualTo: _auth.currentUser?.uid)
+                .snapshots(),
+            builder: (context, accountSnapshot) {
+              if (accountSnapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
+              }
+
+              if (!accountSnapshot.hasData ||
+                  accountSnapshot.data!.docs.isEmpty) {
+                return Center(child: Text("No accounts available."));
+              }
+
+              final accounts = accountSnapshot.data!.docs;
+
+              return ListView.separated(
+                itemCount: accounts.length,
+                separatorBuilder: (context, index) => Divider(),
+                itemBuilder: (context, index) {
+                  final account = accounts[index];
+                  final accountId = account[textlink.accountId];
+                  final accountName = account[textlink.accountName];
+                  final accountContact = account[textlink.accountContact];
+
+                  return StreamBuilder(
+                    stream: FirebaseFirestore.instance
+                        .collection(textlink.tbltransaction)
+                        .where("user_id", isEqualTo: _auth.currentUser?.uid)
+                        .where(textlink.accountId, isEqualTo: accountId)
+                        .snapshots(),
+                    builder: (context, transactionSnapshot) {
+                      // if (transactionSnapshot.connectionState == ConnectionState.waiting) {
+                      //   return ListTile(title: Text("Loading..."));
+                      // }
+                      final transactions = transactionSnapshot.data?.docs ?? [];
+
+                      double creditSum = 0.0;
+                      double debitSum = 0.0;
+
+                      for (var transaction in transactions) {
+                        double amount = double.parse(
+                            transaction[textlink.transactionAmount].toString());
+                        bool isCredit =
+                            transaction[textlink.transactionIsCredited] ??
+                                false;
+                        if (isCredit) {
+                          creditSum += amount;
+                        } else {
+                          debitSum += amount;
                         }
-                        final transactions = transactionSnapshot.data?.docs ?? [];
-      
-                        double creditSum = 0.0;
-                        double debitSum = 0.0;
-      
-                        for (var transaction in transactions) {
-                          double amount = double.parse(transaction[textlink.transactionAmount].toString());
-                          bool isCredit = transaction[textlink.transactionIsCredited] ?? false;
-                          if (isCredit) {
-                            creditSum += amount;
-                          } else {
-                            debitSum += amount;
-                          }
-                        }
-                        double accountBalance = creditSum - debitSum;
-      
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: accountBalance >= 0 ? Colors.green : Colors.red,
-                            child: Text(
-                              accountName[0].toUpperCase(),
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                            ),
+                      }
+                      double accountBalance = creditSum - debitSum;
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor:
+                              accountBalance >= 0 ? Colors.green : Colors.red,
+                          child: Text(
+                            accountName[0].toUpperCase(),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
                           ),
-                          title: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  accountName,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                        ),
+                        title: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                accountName,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 16),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              Text(
-                                "${CurrencyManager.cr}${accountBalance.abs().toStringAsFixed(2)} ${accountBalance >= 0 ? 'CR' : 'DR'}",
-                                style: TextStyle(
-                                  color: accountBalance >= 0 ? Colors.green : Colors.red,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                              )
-                            ],
-                          ),
-                          subtitle: Text(accountContact),
-                          trailing: PopupMenuButton<String>(
-                            icon: const Icon(Icons.more_vert),
-                            onSelected: (value) async {
-                              if (value == 'edit') {
-                                final shouldRefresh = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => AddAccount(
-                                      name: accountName,
-                                      contact: accountContact,
-                                      id: accountId.toString(),
-                                      email: account[textlink.accountEmail],
-                                      description: account[textlink.accountDescription],
-                                    ),
+                            ),
+                            Text(
+                              "${CurrencyManager.cr}${accountBalance.abs().toStringAsFixed(2)} ${accountBalance >= 0 ? 'CR' : 'DR'}",
+                              style: TextStyle(
+                                color: accountBalance >= 0
+                                    ? Colors.green
+                                    : Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            )
+                          ],
+                        ),
+                        subtitle: Text(accountContact),
+                        trailing: PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_vert),
+                          onSelected: (value) async {
+                            if (value == 'edit') {
+                              final shouldRefresh = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => AddAccount(
+                                    name: accountName,
+                                    contact: accountContact,
+                                    id: accountId.toString(),
+                                    email: account[textlink.accountEmail],
+                                    description:
+                                        account[textlink.accountDescription],
                                   ),
-                                );
-      
-                                if (shouldRefresh == true) {
-                                  setState(() {});
-                                  calculateTotals();
-                                }
-                              } else if (value == 'delete') {
-                                final shouldDelete = await showDialog<bool>(
-                                  context: context,
-                                  builder: (BuildContext context) {
-                                    return AlertDialog(
-                                      title: const Text('Confirm Delete'),
-                                      content: const Text('Are you sure you want to delete this account?'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.of(context).pop(false),
-                                          child: const Text('Cancel'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () => Navigator.of(context).pop(true),
-                                          child: const Text('Delete'),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-      
-                                if (shouldDelete == true) {
-                                  QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-                                      .collection(textlink.tbltransaction)
-                                      .where(textlink.transactionAccountId, isEqualTo: accountId)
-                                      .get();
-      
-                                  for (var doc in querySnapshot.docs) {
-                                    await doc.reference.delete();
-                                  }
-      
-                                  await FirebaseFirestore.instance
-                                      .collection(textlink.tblAccount)
-                                      .doc(accountId.toString())
-                                      .delete();
-      
-                                  setState(() {});
-                                  calculateTotals();
-                                }
+                                ),
+                              );
+
+                              if (shouldRefresh == true) {
+                                setState(() {});
+                                calculateTotals();
                               }
-                            },
-                            itemBuilder: (BuildContext context) => [
-                              PopupMenuItem(
-                                value: 'edit',
-                                child: Row(
-                                  children: const [
-                                    Icon(Icons.edit, color: Colors.blue),
-                                    SizedBox(width: 8),
-                                    Text('Edit', style: TextStyle(fontSize: 16)),
-                                  ],
-                                ),
-                              ),
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Row(
-                                  children: const [
-                                    Icon(Icons.delete, color: Colors.red),
-                                    SizedBox(width: 8),
-                                    Text('Delete', style: TextStyle(fontSize: 16)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 4,
-                          ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => AccountData(
-                                  name: accountName,
-                                  id: accountId,
-                                  num: accountContact,
-                                ),
-                              ),
-                            );
+                            } else if (value == 'delete') {
+                              final shouldDelete = await showDialog<bool>(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    title: const Text('Confirm Delete'),
+                                    content: const Text(
+                                        'Are you sure you want to delete this account?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(true),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+
+                              if (shouldDelete == true) {
+                                QuerySnapshot querySnapshot =
+                                    await FirebaseFirestore.instance
+                                        .collection(textlink.tbltransaction)
+                                        .where(textlink.transactionAccountId,
+                                            isEqualTo: accountId)
+                                        .get();
+
+                                for (var doc in querySnapshot.docs) {
+                                  await doc.reference.delete();
+                                }
+
+                                await FirebaseFirestore.instance
+                                    .collection(textlink.tblAccount)
+                                    .doc(accountId.toString())
+                                    .delete();
+
+                                setState(() {});
+                                calculateTotals();
+                              }
+                            }
                           },
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            )
-      ),
+                          itemBuilder: (BuildContext context) => [
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: const [
+                                  Icon(Icons.edit, color: Colors.blue),
+                                  SizedBox(width: 8),
+                                  Text('Edit', style: TextStyle(fontSize: 16)),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: const [
+                                  Icon(Icons.delete, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Delete',
+                                      style: TextStyle(fontSize: 16)),
+                                ],
+                              ),
+                            ),
+                          ],
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 4,
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AccountData(
+                                name: accountName,
+                                id: accountId,
+                                num: accountContact,
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          )),
     );
   }
 
@@ -630,7 +729,10 @@ class _HomePageState extends State<Home> {
 
         final accounts = accountSnapshot.data!.docs;
 
-        return buildRefreshIndicator(
+        return RefreshIndicator(
+          onRefresh: () async {
+            setState(() {}); // Only refresh the credit tab
+          },
           child: FutureBuilder<List<Map<String, dynamic>>>(
             future: _getFilteredAccounts(accounts, true),
             builder: (context, snapshot) {
@@ -638,7 +740,8 @@ class _HomePageState extends State<Home> {
                 return Center(child: CircularProgressIndicator());
               }
               if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return Center(child: Text("No accounts with a positive balance."));
+                return Center(
+                    child: Text("No accounts with a positive balance."));
               }
 
               final filteredAccounts = snapshot.data!;
@@ -661,11 +764,15 @@ class _HomePageState extends State<Home> {
                         style: TextStyle(color: Colors.white),
                       ),
                     ),
-                    title: Text(accountName, style: TextStyle(fontWeight: FontWeight.bold)),
+                    title: Text(accountName,
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text(accountContact),
                     trailing: Text(
                       "${CurrencyManager.cr}${accountBalance.toStringAsFixed(2)} CR",
-                      style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 15),
+                      style: TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15),
                     ),
                     onTap: () {
                       Navigator.push(
@@ -705,7 +812,10 @@ class _HomePageState extends State<Home> {
 
         final accounts = accountSnapshot.data!.docs;
 
-        return buildRefreshIndicator(
+        return RefreshIndicator(
+          onRefresh: () async {
+            setState(() {}); // Only refresh the debit tab
+          },
           child: FutureBuilder<List<Map<String, dynamic>>>(
             future: _getFilteredAccounts(accounts, false),
             builder: (context, snapshot) {
@@ -732,9 +842,11 @@ class _HomePageState extends State<Home> {
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: Colors.red,
-                      child: Text(accountName[0].toUpperCase(), style: TextStyle(color: Colors.white)),
+                      child: Text(accountName[0].toUpperCase(),
+                          style: TextStyle(color: Colors.white)),
                     ),
-                    title: Text(accountName, style: TextStyle(fontWeight: FontWeight.bold)),
+                    title: Text(accountName,
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text(accountContact),
                     trailing: Text(
                       "${CurrencyManager.cr}${(accountBalance ?? 0.0).abs().toStringAsFixed(2)} ${accountBalance != null && accountBalance < 0 ? 'CR' : 'DR'}",
@@ -766,30 +878,33 @@ class _HomePageState extends State<Home> {
     );
   }
 
-  Future<List<Map<String, dynamic>>> _getFilteredAccounts(List<QueryDocumentSnapshot> accounts, bool isCredit) async {
+  Future<List<Map<String, dynamic>>> _getFilteredAccounts(
+      List<QueryDocumentSnapshot> accounts, bool isCredit) async {
     if (accounts.isEmpty) return [];
 
-    // Fetch all transactions for the given accounts in a single query
     final transactionSnapshot = await FirebaseFirestore.instance
         .collection(textlink.tbltransaction)
         .where("user_id", isEqualTo: _auth.currentUser?.uid)
-        .where(textlink.accountId, whereIn: accounts.map((a) => a[textlink.accountId]).toList())
+        .where(textlink.accountId,
+            whereIn: accounts.map((a) => a[textlink.accountId]).toList())
         .get();
 
-    // Store balances for each account
     final accountBalances = <String, double>{};
 
     for (var transaction in transactionSnapshot.docs) {
       String accountId = transaction[textlink.accountId].toString();
-      double amount = double.parse(transaction[textlink.transactionAmount].toString());
-      bool isCreditTransaction = transaction[textlink.transactionIsCredited] ?? false;
+      double amount =
+          double.parse(transaction[textlink.transactionAmount].toString());
+      bool isCreditTransaction =
+          transaction[textlink.transactionIsCredited] ?? false;
 
-      accountBalances[accountId] = (accountBalances[accountId] ?? 0) + (isCreditTransaction ? amount : -amount);
+      accountBalances[accountId] = (accountBalances[accountId] ?? 0) +
+          (isCreditTransaction ? amount : -amount);
     }
 
-    // Filter accounts based on balance
     final filteredAccounts = accounts.where((account) {
-      double balance = accountBalances[account[textlink.accountId].toString()] ?? 0;
+      double balance =
+          accountBalances[account[textlink.accountId].toString()] ?? 0;
       return isCredit ? balance > 0 : balance < 0;
     }).map((account) {
       return {

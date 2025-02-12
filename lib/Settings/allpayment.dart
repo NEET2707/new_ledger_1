@@ -21,9 +21,11 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
   bool load = false;
 
   List<Map<String, dynamic>> transactions = [];
+  List<Map<String, dynamic>> creditTransactions = [];
+  List<Map<String, dynamic>> debitTransactions = [];
+
   String _transactionTypeFilter = 'All';
-  DateTime _sDate = DateTime.now();
-  DateTime _eDate = DateTime.now();
+
   late DateTime _startDate;
   late DateTime _endDate;
 
@@ -33,22 +35,20 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
   User? user;
   late String userId;
 
-
   @override
   void initState() {
     super.initState();
     user = FirebaseAuth.instance.currentUser;
     userId = user?.uid ?? '';
 
-    // Reset filters
     _resetFilters();
 
-    // Load transactions from cache or fetch from Firestore
     if (!_dataLoaded) {
       _loadTransactionsFromCache();
     } else {
       setState(() {
         transactions = _cachedTransactions;
+        _separateTransactions();
       });
     }
   }
@@ -64,7 +64,6 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
     });
   }
 
-  // Load cached transactions from SharedPreferences
   Future<void> _loadTransactionsFromCache() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? cachedData = prefs.getString('cachedTransactions');
@@ -76,29 +75,25 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
         _cachedTransactions = List<Map<String, dynamic>>.from(cachedList);
         transactions = _cachedTransactions;
         _dataLoaded = true;
+        _separateTransactions();
       });
     } else {
       print('No cached data found.');
-      _fetchTransactions(); // If no cache, fetch from Firestore
+      _fetchTransactions();
     }
   }
 
-  // Fetch transactions from Firestore and save them to cache
   Future<void> _fetchTransactions() async {
     setState(() {
       load = true;
     });
     try {
-      // Get the current user's UID from Firebase Authentication
-
-      // Fetch transactions for the specific userId
       QuerySnapshot transactionSnapshot = await _firestore
           .collection('Transaction')
-          .where('user_id', isEqualTo: userId)  // Filter by userId
+          .where('user_id', isEqualTo: userId)
           .get();
 
       List<Map<String, dynamic>> tempTransactions = [];
-      DateTime currentDate = DateTime.now();
 
       for (var doc in transactionSnapshot.docs) {
         String accountId = doc['account_id'].toString();
@@ -145,6 +140,7 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
         transactions = tempTransactions;
         _cachedTransactions = tempTransactions; // Cache the transactions
         _dataLoaded = true;
+        _separateTransactions();
         _saveTransactionsToCache(tempTransactions); // Save to cache
       });
     } catch (e) {
@@ -154,7 +150,11 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
     }
   }
 
-  // Save transactions to SharedPreferences
+  void _separateTransactions() {
+    creditTransactions = transactions.where((txn) => txn['isCredit'] == true).toList();
+    debitTransactions = transactions.where((txn) => txn['isCredit'] == false).toList();
+  }
+
   Future<void> _saveTransactionsToCache(List<Map<String, dynamic>> transactions) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String jsonString = jsonEncode(transactions);
@@ -167,11 +167,9 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
     }
   }
 
-  // Other methods and widget building code remain the same
   Future<void> _showFilterDialog() async {
-    // Start with the correct types for date variables
     DateTime tempStartDate = _startDate ?? DateTime.now();
-      DateTime tempEndDate = _endDate ?? DateTime.now();
+    DateTime tempEndDate = _endDate ?? DateTime.now();
     String tempTransactionType = _transactionTypeFilter;
 
     await showDialog(
@@ -236,7 +234,7 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
                                 icon: Icon(Icons.calendar_today),
                                 onPressed: () async {
                                   final DateTime? pickedStartDate =
-                                      await showDatePicker(
+                                  await showDatePicker(
                                     context: context,
                                     initialDate: tempStartDate,
                                     firstDate: DateTime(2000),
@@ -271,7 +269,7 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
                                 icon: Icon(Icons.calendar_today),
                                 onPressed: () async {
                                   final DateTime? pickedEndDate =
-                                      await showDatePicker(
+                                  await showDatePicker(
                                     context: context,
                                     initialDate: tempEndDate,
                                     firstDate: DateTime(2000),
@@ -299,7 +297,6 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
                 TextButton(
                   onPressed: () {
                     setState(() {
-                      // Save dates as DateTime objects (not strings)
                       _transactionTypeFilter = tempTransactionType;
                       _startDate = tempStartDate; // Store DateTime
                       _endDate = tempEndDate; // Store DateTime
@@ -338,17 +335,17 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
                   children: [
                     pw.Text('Account'),
                     pw.Text('Date'),
-                    pw.Text('Amount (Dr/Cr)'),
+                    pw.Text('Credit'),
+                    pw.Text('Debit'),
                   ],
                 ),
                 ...transactions.map(
-                  (txn) => pw.TableRow(
+                      (txn) => pw.TableRow(
                     children: [
                       pw.Text(txn['account']),
                       pw.Text(txn['date']),
-                      pw.Text(
-                        '${txn['amount']} ${txn['isCredit'] ? "Cr" : "Dr"}',
-                      ),
+                      pw.Text(txn['isCredit'] ? txn['amount'] : ''),
+                      pw.Text(!txn['isCredit'] ? txn['amount'] : ''),
                     ],
                   ),
                 )
@@ -408,19 +405,27 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
         children: [
           Container(
             color: Colors.blueAccent,
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(12.0),
             child: Row(
               children: const [
                 Expanded(
-                    child: Text('Account',
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold))),
-                Expanded(
+                    flex: 2,
                     child: Text('Date',
                         style: TextStyle(
                             color: Colors.white, fontWeight: FontWeight.bold))),
                 Expanded(
-                    child: Text('Amount (Dr/Cr)',
+                    flex: 3,
+                    child: Text('Account',
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold))),
+                Expanded(
+                    flex: 2,
+                    child: Text('Credit',
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold))),
+                Expanded(
+                    flex: 1,
+                    child: Text('Debit',
                         style: TextStyle(
                             color: Colors.white, fontWeight: FontWeight.bold))),
               ],
@@ -439,7 +444,7 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
               itemBuilder: (context, index) {
                 final txn = transactions[index];
                 return Container(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.all(12.0),
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(color: Colors.grey.shade300),
@@ -447,14 +452,39 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
                   ),
                   child: Row(
                     children: [
-                      Expanded(child: Text(txn['account'])),
-                      Expanded(child: Text(txn['date'])),
                       Expanded(
+                        flex: 2,
                         child: Text(
-                          '${txn['amount']} ${txn['isCredit'] ? "Cr" : "Dr"}',
+                          txn['date'],
+                          style: TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          txn['account'],
+                          style: TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          txn['isCredit'] ? txn['amount'] : '',
                           style: TextStyle(
-                            color: txn['isCredit'] ? Colors.green : Colors.red,
+                            color: Colors.green,
                             fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: Text(
+                          !txn['isCredit'] ? txn['amount'] : '',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
                         ),
                       ),

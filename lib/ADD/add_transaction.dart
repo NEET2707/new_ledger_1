@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:new_ledger_1/transaction_search.dart';
 import '../Settings/settings.dart';
 import '../SharedPref/sharedpreferences.dart';
-import '../colors.dart'; // For date formatting
+import '../colors.dart';
 
 class AddTransaction extends StatefulWidget {
   final String? name;
@@ -137,7 +137,6 @@ class _AddTransactionState extends State<AddTransaction> {
     super.initState();
     getDataFromSPHelper();
 
-    // Auto-focus on amount field
     WidgetsBinding.instance.addPostFrameCallback((_) {
       amountFocusNode.requestFocus();
     });
@@ -191,7 +190,7 @@ class _AddTransactionState extends State<AddTransaction> {
         textlink.transactionIsDelete: false,
         textlink.transactionReminderDate: _reminderDate != null
             ? _formatDate(_reminderDate!)
-            : null, // Save reminder date
+            : null,
       };
 
       if (widget.transactionId != null) {
@@ -233,7 +232,7 @@ class _AddTransactionState extends State<AddTransaction> {
     final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: initialDate,
-      firstDate: now, // Set the first date to today
+      firstDate: now,
       lastDate: DateTime(2100),
       builder: (context, child) {
         return Theme(
@@ -250,10 +249,8 @@ class _AddTransactionState extends State<AddTransaction> {
     );
 
     if (pickedDate != null) {
-      // Allow any date, including today
       onDateSelected(pickedDate);
     } else {
-      // No date selected, so no action is performed
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Please select a valid date.")),
@@ -297,7 +294,6 @@ class _AddTransactionState extends State<AddTransaction> {
                                   userId: userId.toString(),
                                 ))).then((result) {
                       if (result != null) {
-                        // Extract and store the result in variables
                         selectedAccountName = result['name'];
                         selectedAccountId = result['id'];
                         setState(() {});
@@ -340,7 +336,7 @@ class _AddTransactionState extends State<AddTransaction> {
                       keyboardType: TextInputType.number,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter the amount'; // Validation message for empty Name field
+                          return 'Please enter the amount';
                         }
                         return null;
                       },
@@ -378,7 +374,7 @@ class _AddTransactionState extends State<AddTransaction> {
                       setState(() {
                         _isReminderChecked = !_isReminderChecked;
                         if (!_isReminderChecked) {
-                          _reminderDate = null; // Clear the reminder date if unchecked
+                          _reminderDate = null;
                         }
                       });
                     },
@@ -478,7 +474,7 @@ class _AddTransactionState extends State<AddTransaction> {
                                       Text("Please select a reminder date."),
                                 ),
                               );
-                              return; // Prevent further execution
+                              return;
                             }
                             if (widget.flag == true) {
                               _saveTransaction(false);

@@ -3,8 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:new_ledger_1/account_data.dart';
 import 'package:new_ledger_1/Settings/settings.dart';
-import 'package:new_ledger_1/colors.dart';
-
 import 'change_currency_page.dart';
 
 class AllAccountsPage extends StatefulWidget {
@@ -73,7 +71,6 @@ class _AllAccountsPageState extends State<AllAccountsPage> {
           }
 
           var accounts = snapshot.data!.docs;
-          // Filter the accounts based on the search query
           var filteredAccounts = accounts.where((account) {
             final accountName = account[textlink.accountName].toString().toLowerCase();
             return accountName.contains(_searchQuery);
@@ -95,9 +92,9 @@ class _AllAccountsPageState extends State<AllAccountsPage> {
                     .where(textlink.accountId, isEqualTo: accountId) // Filter by uid
                     .snapshots(),
                 builder: (context, transactionSnapshot) {
-                  if (transactionSnapshot.connectionState == ConnectionState.waiting) {
-                    return ListTile(title: Text("Loading..."));
-                  }
+                  // if (transactionSnapshot.connectionState == ConnectionState.waiting) {
+                  //   return ListTile(title: Text("Loading..."));
+                  // }
                   final transactions = transactionSnapshot.data?.docs ?? [];
                   double creditSum = 0.0;
                   double debitSum = 0.0;

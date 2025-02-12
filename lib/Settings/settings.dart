@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// Rename the Settings class to AppSettings to avoid conflicts
 import '../../colors.dart';
 import '../authentication/loginpage.dart';
 import '../password/set_pin.dart';
@@ -13,9 +12,7 @@ import '../SharedPref/sharedpreferences.dart';
 import 'all_accounts.dart';
 import 'allpayment.dart';
 import 'change_currency_page.dart';
-import '../colors.dart'; // Import your custom colors file.
 
-// Account table field names
 class textlink {
   static String tblAccount = "Account";
   static String accountId = "account_id";
@@ -29,7 +26,6 @@ class textlink {
   static String accountDateModified = "date_modified";
   static String accountIsDelete = "is_delete";
 
-// Transaction table field names
   static String tbltransaction = "Transaction";
   static String transactionAccountId = "account_id";
   static String transactionId = "transaction_id";
@@ -94,12 +90,6 @@ class _AppSettingsState extends State<AppSettings> {
     user = _auth.currentUser;
     _getSavedPin();
   }
-  //
-  // void onToggleSwitch(bool value) {
-  //   setState(() {
-  //     isToggled = value;
-  //   });
-  // }
 
   Future<void> _logout() async {
     try {
@@ -131,7 +121,6 @@ class _AppSettingsState extends State<AppSettings> {
     }
   }
 
-  // Function to launch the URL
   Future<void> _launchUrl(String links) async {
     final Uri _url = Uri.parse(links);
     if (!await launchUrl(_url)) {
@@ -217,10 +206,8 @@ class _AppSettingsState extends State<AppSettings> {
       body: ListView(
         padding: EdgeInsets.all(16.0),
         children: [
-          // Display user profile details
           _buildProfileDetails(),
 
-          // Add all other settings cards
           _buildSettingsCard(
             icon: Icons.account_circle,
             title: "All Account",
@@ -344,8 +331,8 @@ class _AppSettingsState extends State<AppSettings> {
     required String subtitle,
     void Function()? onTap,
     Widget?
-        trailingWidget, // Add this parameter for trailing widget like Switch
-    IconData? leadingIcon, // Add this parameter to accept leadingIcon
+        trailingWidget,
+    IconData? leadingIcon,
   }) {
     return Card(
       elevation: 2,
@@ -356,7 +343,7 @@ class _AppSettingsState extends State<AppSettings> {
       child: ListTile(
         leading: leadingIcon != null
             ? Icon(leadingIcon,
-                size: 40, color: Colors.black54) // Use leadingIcon if available
+                size: 40, color: Colors.black54)
             : Icon(icon, size: 40, color: Colors.black54), // Default icon
         title: Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(subtitle),
@@ -383,7 +370,7 @@ class _AppSettingsState extends State<AppSettings> {
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(); // Close the dialog
-                _logout(); // Call the logout function
+                _logout();
               },
               child: const Text("Confirm"),
             ),
@@ -392,15 +379,4 @@ class _AppSettingsState extends State<AppSettings> {
       },
     );
   }
-
-// void _launchURL(String url) async {
-  //   final Uri uri = Uri.parse(url); // Convert string URL to Uri
-  //
-  //   if (await canLaunchUrl(uri)) {
-  //     // Check if the URL can be launched
-  //     await launchUrl(uri); // Launch the URL
-  //   } else {
-  //     throw 'Could not launch $url'; // Throw an error if the URL cannot be launched
-  //   }
-  // }
 }

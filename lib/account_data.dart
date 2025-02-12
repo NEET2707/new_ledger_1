@@ -39,8 +39,8 @@ class _AccountDataState extends State<AccountData>
     // Show content after a delay
     Future.delayed(const Duration(seconds: 1), () {
       setState(() {
-        showContent = true; // Display content after 5 seconds
-        isLoading = false; // Hide loading spinner
+        showContent = true;
+        isLoading = false;
       });
     });
   }
@@ -54,7 +54,6 @@ class _AccountDataState extends State<AccountData>
       double creditSum = 0.0;
       double debitSum = 0.0;
 
-      // Process the transaction data
       for (var doc in querySnapshot.docs) {
         double amount =
             double.parse(doc[textlink.transactionAmount].toString());
@@ -74,18 +73,18 @@ class _AccountDataState extends State<AccountData>
       });
     }, onError: (e) {
       setState(() {
-        isLoading = false; // Hide loading if error occurs
+        isLoading = false;
       });
     });
   }
 
   Color getBalanceColor() {
     if (accountBalance == 0) {
-      return themecolor; // Default theme color for zero balance
+      return themecolor;
     } else if (accountBalance > 0) {
-      return Colors.green; // Green for positive balance
+      return Colors.green;
     } else {
-      return Colors.red; // Red for negative balance
+      return Colors.red;
     }
   }
 
@@ -101,7 +100,6 @@ class _AccountDataState extends State<AccountData>
 
   @override
   void dispose() {
-    // _rotationController.dispose(); // Dispose the controller when no longer needed
     super.dispose();
   }
 
@@ -119,7 +117,7 @@ class _AccountDataState extends State<AccountData>
           ? AppBar(
               foregroundColor: Colors.white,
               backgroundColor:
-                  getAppBarColor(), // Set app bar color dynamically
+                  getAppBarColor(),
               title: Text(
                 widget.name,
                 style: const TextStyle(
@@ -129,9 +127,8 @@ class _AccountDataState extends State<AccountData>
               ),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.more_vert), // Vertical three dots icon
+                  icon: const Icon(Icons.more_vert),
                   onPressed: () {
-                    // Show a bottom sheet instead of a popup menu
                     showModalBottomSheet(
                       context: context,
                       shape: const RoundedRectangleBorder(
@@ -171,7 +168,6 @@ class _AccountDataState extends State<AccountData>
                               onTap: () async {
                                 final pdf = pw.Document();
 
-                                // Fetch transactions
                                 QuerySnapshot transactionSnapshot =
                                     await FirebaseFirestore.instance
                                         .collection(textlink.tbltransaction)
@@ -284,7 +280,7 @@ class _AccountDataState extends State<AccountData>
                                               FirebaseFirestore firestore = FirebaseFirestore.instance;
 
                                               await firestore
-                                                  .collection("Transaction") // Assuming your collection is called 'transactions'
+                                                  .collection("Transaction")
                                                   .where('account_id', isEqualTo: widget.id) // Filter by account_id
                                                   .get()
                                                   .then((snapshot) {
@@ -295,7 +291,6 @@ class _AccountDataState extends State<AccountData>
 
                                               print("All transactions for account ${widget.id} deleted");
 
-                                              // Check if the widget is still mounted before showing the SnackBar
                                               if (mounted) {
                                                 ScaffoldMessenger.of(context).showSnackBar(
                                                   const SnackBar(content: Text("All transactions deleted")),
@@ -304,7 +299,6 @@ class _AccountDataState extends State<AccountData>
                                             } catch (e) {
                                               print("Error deleting transactions: $e");
 
-                                              // Check if the widget is still mounted before showing the SnackBar
                                               if (mounted) {
                                                 ScaffoldMessenger.of(context).showSnackBar(
                                                   const SnackBar(content: Text("Error deleting transactions")),
@@ -336,8 +330,6 @@ class _AccountDataState extends State<AccountData>
                                       name: widget.name,
                                       contact: widget.num,
                                       id: widget.id.toString(),
-                                      // email: account[textlink.accountEmail],
-                                      // description: account[textlink.accountDescription],
                                     ),
                                   ),
                                 );
@@ -353,12 +345,11 @@ class _AccountDataState extends State<AccountData>
                                     .get();
 
                                 if (querySnapshot.docs.isEmpty) {
-                                  // print("⚠️ No matching documents found for accountId: $accountId");
                                 } else {
                                   for (var doc in querySnapshot.docs) {
-                                    print("📄 Found document: ${doc.id} - Reference: ${doc.reference}");
+                                    print("Found document: ${doc.id} - Reference: ${doc.reference}");
                                     await doc.reference.delete();
-                                    print("✅ Deleted document: ${doc.id}");
+                                    print("Deleted document: ${doc.id}");
                                   }
                                 }
 
@@ -382,7 +373,7 @@ class _AccountDataState extends State<AccountData>
             )
           : PreferredSize(
               preferredSize:
-                  const Size.fromHeight(0), // AppBar hidden until content shows
+                  const Size.fromHeight(0),
               child: Container(),
             ),
       body: isLoading

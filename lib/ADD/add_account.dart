@@ -1,8 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import for FirebaseAuth
-import 'package:new_ledger_1/SharedPref/sharedpreferences.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../account_data.dart';
 import '../colors.dart';
 import '../Settings/settings.dart';
@@ -13,8 +11,8 @@ class AddAccount extends StatefulWidget {
   final String name;
   final String contact;
   final String id;
-  final String? email; // Make email optional
-  final String? description; // Make description optional
+  final String? email;
+  final String? description;
 
   const AddAccount({
     super.key,
@@ -30,7 +28,7 @@ class AddAccount extends StatefulWidget {
 }
 
 class _AddAccountState extends State<AddAccount> {
-  final _formKey = GlobalKey<FormState>(); // Key to validate the form
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController accountNameController = TextEditingController();
   final TextEditingController accountContactController = TextEditingController();
   final TextEditingController accountEmailController = TextEditingController();
@@ -50,7 +48,7 @@ class _AddAccountState extends State<AddAccount> {
         return 1;
       }
     } catch (e) {
-      return -1; // Return a safe fallback value in case of error
+      return -1;
     }
   }
 
@@ -59,12 +57,10 @@ class _AddAccountState extends State<AddAccount> {
       return;
     }
 
-    // Check if it's a new account or editing an existing one
     int nextId = widget.id == '0' ? await getNextId() : int.parse(widget.id);
     User? user = FirebaseAuth.instance.currentUser;  // Get the current user
 
     if (user != null) {
-      // If it's a new account, add new document, else update the existing account document
       if (widget.id == '0') {
         await FirebaseFirestore.instance.collection(textlink.tblAccount).doc(nextId.toString()).set({
           textlink.accountName: PaccountName,
@@ -90,7 +86,6 @@ class _AddAccountState extends State<AddAccount> {
         ),
       );
     } else {
-      // Handle user not logged in case
     }
   }
 
@@ -115,7 +110,7 @@ class _AddAccountState extends State<AddAccount> {
         backgroundColor: themecolor,
         foregroundColor: Colors.white,
         title: Text(
-          widget.id == '0' ? 'Create Account' : 'Edit Account', // Change title based on edit or create
+          widget.id == '0' ? 'Create Account' : 'Edit Account',
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
@@ -128,14 +123,14 @@ class _AddAccountState extends State<AddAccount> {
             children: [
               TextFormField(
                 controller: accountNameController,
-                textCapitalization: TextCapitalization.sentences, // Capitalizes the first character
+                textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
-                  labelText: 'Name *', // Add asterisk to indicate required field
+                  labelText: 'Name *',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter the account name'; // Validation message for empty Name field
+                    return 'Please enter the account name';
                   }
                   return null;
                 },
@@ -144,15 +139,15 @@ class _AddAccountState extends State<AddAccount> {
               TextFormField(
                 controller: accountContactController,
                 decoration: const InputDecoration(
-                  labelText: 'Mobile Number *', // Add asterisk to indicate required field
+                  labelText: 'Mobile Number *',
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.phone,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter the account contact number'; // Validation message for empty Mobile field
+                    return 'Please enter the account contact number';
                   }  else if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
-                    return 'Mobile number must contain only digits'; // Validation for non-numeric characters
+                    return 'Mobile number must contain only digits';
                   }
                   return null;
                 },
@@ -162,7 +157,7 @@ class _AddAccountState extends State<AddAccount> {
               TextField(
                 controller: accountEmailController,
                 decoration: const InputDecoration(
-                  labelText: 'Email', // No asterisk as it is optional
+                  labelText: 'Email',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -170,7 +165,7 @@ class _AddAccountState extends State<AddAccount> {
               TextField(
                 controller: accountDescriptionController,
                 decoration: const InputDecoration(
-                  labelText: 'Description', // No asterisk as it is optional
+                  labelText: 'Description',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -187,10 +182,10 @@ class _AddAccountState extends State<AddAccount> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: themecolor, // Set the background color to the theme color
+                    backgroundColor: themecolor,
                   ),
                   child: Text(
-                    widget.id == '0' ? 'Add' : 'Update', // Change button label based on action
+                    widget.id == '0' ? 'Add' : 'Update',
                     style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ),
