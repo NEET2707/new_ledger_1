@@ -467,6 +467,14 @@ class _AddTransactionState extends State<AddTransaction> {
                       child: ElevatedButton(
                         onPressed: () {
                           if (_formKey.currentState?.validate() ?? false) {
+
+                            if (selectedAccountId == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Please select an account.")),
+                              );
+                              return; // Stop further execution
+                            }
+
                             if (_isReminderChecked && _reminderDate == null) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -495,6 +503,14 @@ class _AddTransactionState extends State<AddTransaction> {
                       child: ElevatedButton(
                         onPressed: () {
                           if (_formKey.currentState?.validate() ?? false) {
+
+                            if (selectedAccountId == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Please select an account.")),
+                              );
+                              return; // Stop further execution
+                            }
+
                             if (_isReminderChecked && _reminderDate == null) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(

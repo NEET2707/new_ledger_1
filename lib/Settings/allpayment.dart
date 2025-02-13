@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:new_ledger_1/Settings/settings.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -96,7 +97,7 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
       List<Map<String, dynamic>> tempTransactions = [];
 
       for (var doc in transactionSnapshot.docs) {
-        String accountId = doc['account_id'].toString();
+        String accountId = doc[textlink.accountId].toString();
         String accountName = 'Unknown Account';
 
         DocumentSnapshot accountDoc =
@@ -105,7 +106,7 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
           accountName = accountDoc['account_name'];
         }
 
-        String transactionDateString = doc['transaction_date'];
+        String transactionDateString = doc[textlink.transactionDate];
         DateTime transactionDate =
         DateFormat('d MMM yyyy').parse(transactionDateString);
 
@@ -118,10 +119,10 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
         if (_transactionTypeFilter == 'All') {
           isTransactionTypeMatch = true;
         } else if (_transactionTypeFilter == 'Credit' &&
-            doc['is_credited'] == true) {
+            doc[textlink.transactionIsCredited] == true) {
           isTransactionTypeMatch = true;
         } else if (_transactionTypeFilter == 'Debit' &&
-            doc['is_credited'] == false) {
+            doc[textlink.transactionIsCredited] == false) {
           isTransactionTypeMatch = true;
         }
 
@@ -129,8 +130,8 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
           tempTransactions.add({
             'account': accountName,
             'date': DateFormat('yyyy-MM-dd').format(transactionDate),
-            'amount': doc['transaction_amount'].toString(),
-            'isCredit': doc['is_credited'] ?? false,
+            'amount': doc[textlink.transactionAmount].toString(),
+            'isCredit': doc[textlink.transactionIsCredited] ?? false,
           });
         }
       }

@@ -43,10 +43,14 @@ class _HomePageState extends State<Home> {
   @override
   void initState() {
     super.initState();
-    calculateTotals();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      calculateTotals(); // Ensures it runs only once after UI is built
+    });
     fetchUserData();
     checkDueReminders();
   }
+
+
 
   Future<void> checkDueReminders() async {
     final currentUser = FirebaseAuth.instance.currentUser;
@@ -123,7 +127,7 @@ class _HomePageState extends State<Home> {
 
       for (var transaction in transactionSnapshot.docs) {
         double amount =
-            double.parse(transaction[textlink.transactionAmount].toString());
+        double.parse(transaction[textlink.transactionAmount].toString());
         bool isCredit = transaction[textlink.transactionIsCredited] ?? false;
 
         if (isCredit) {
@@ -133,15 +137,21 @@ class _HomePageState extends State<Home> {
         }
       }
 
-      if (mounted) {
-        setState(() {
-          totalCredit = creditSum;
-          totalDebit = debitSum;
-          totalAccountBalance = creditSum - debitSum;
-        });
+      double newTotalCredit = creditSum;
+      double newTotalDebit = debitSum;
+      double newTotalAccountBalance = creditSum - debitSum;
 
-        checkDueReminders();
+      if (mounted &&
+          (newTotalCredit != totalCredit ||
+              newTotalDebit != totalDebit ||
+              newTotalAccountBalance != totalAccountBalance)) {
+        setState(() {
+          totalCredit = newTotalCredit;
+          totalDebit = newTotalDebit;
+          totalAccountBalance = newTotalAccountBalance;
+        });
       }
+
     } catch (e) {
       print("Error: $e");
     }
@@ -403,12 +413,14 @@ class _HomePageState extends State<Home> {
                   Container(
                     color: Colors.blueAccent,
                     child: TabBar(
-                      labelColor: Colors.white,
+                      labelColor: Colors.black,
                       unselectedLabelColor: Colors.white70,
                       indicator: BoxDecoration(
-                        color: Colors.blue,
-                        borderRadius: BorderRadius.circular(8), // Optional: rounded corners
+                        color: Colors.white,
+                        // color: Colors.white.withOpacity(0.2), // Slight highlight effect
+                        borderRadius: BorderRadius.zero, // No rounded corners
                       ),
+                      indicatorSize: TabBarIndicatorSize.tab,
                       tabs: [
                         Tab(text: "ALL"),
                         Tab(text: "CREDIT"),
@@ -441,23 +453,21 @@ class _HomePageState extends State<Home> {
                 icon: Icons.add,
                 children: [
                   SpeedDialChild(
-                    child:
-                        Icon(Icons.account_balance_wallet, color: Colors.black),
+                    child: Icon(Icons.account_balance_wallet, color: Colors.black),
                     backgroundColor: Colors.white,
                     label: 'Add Transaction',
                     onTap: () async {
                       final result = await Navigator.push(
                         context,
-                        MaterialPageRoute(
-                            builder: (context) => AddTransaction()),
+                        MaterialPageRoute(builder: (context) => AddTransaction()),
                       );
 
                       if (result == true) {
-                        calculateTotals();
-                        setState(() {});
+                        await calculateTotals(); // Only update totals, no setState()
                       }
                     },
                   ),
+
                   SpeedDialChild(
                     child: Icon(Icons.person_add, color: Colors.black),
                     backgroundColor: Colors.white,
@@ -500,8 +510,7 @@ class _HomePageState extends State<Home> {
   Widget _buildAllTab() {
     return RefreshIndicator(
       onRefresh: () async {
-        // await calculateTotals();
-        setState(() {}); // Only refresh tab content
+        await calculateTotals(); // Only updates totals
       },
       child: Padding(
           padding: EdgeInsets.only(bottom: 30.0),
@@ -731,7 +740,7 @@ class _HomePageState extends State<Home> {
 
         return RefreshIndicator(
           onRefresh: () async {
-            setState(() {}); // Only refresh the credit tab
+            await calculateTotals();
           },
           child: FutureBuilder<List<Map<String, dynamic>>>(
             future: _getFilteredAccounts(accounts, true),
@@ -814,7 +823,7 @@ class _HomePageState extends State<Home> {
 
         return RefreshIndicator(
           onRefresh: () async {
-            setState(() {}); // Only refresh the debit tab
+            await calculateTotals();
           },
           child: FutureBuilder<List<Map<String, dynamic>>>(
             future: _getFilteredAccounts(accounts, false),

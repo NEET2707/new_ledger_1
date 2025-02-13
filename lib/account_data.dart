@@ -281,7 +281,7 @@ class _AccountDataState extends State<AccountData>
 
                                               await firestore
                                                   .collection("Transaction")
-                                                  .where('account_id', isEqualTo: widget.id) // Filter by account_id
+                                                  .where(textlink.accountId, isEqualTo: widget.id) // Filter by account_id
                                                   .get()
                                                   .then((snapshot) {
                                                 for (var doc in snapshot.docs) {

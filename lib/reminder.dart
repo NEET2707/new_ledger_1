@@ -272,8 +272,10 @@ class _ReminderPageState extends State<ReminderPage> with SingleTickerProviderSt
                         padding: EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.only(bottomLeft: Radius.circular(12))),
                       ),
-                      child: Text("Receive", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                    ),
+                      child: Text(
+                        isCredited ? "Receive" : "Paid",
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      ),                    ),
                   ),
                   Container(height: 40, width: 1, color: Colors.grey.shade300), // Vertical divider
                   Expanded(
