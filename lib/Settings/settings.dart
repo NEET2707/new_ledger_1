@@ -215,7 +215,7 @@ class _AppSettingsState extends State<AppSettings> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => AllAccountsPage()),
+                MaterialPageRoute(builder: (context) => AllAccountsPage(isyes: true, boom: false)),
               );
             },
           ),

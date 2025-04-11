@@ -18,8 +18,9 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   List<Map<String, dynamic>> _cachedTransactions = [];
-  bool _dataLoaded = false;
+  bool _dataLoadedFromCache = false;
   bool load = false;
+  String? _errorMessage; // To display error messages
 
   List<Map<String, dynamic>> transactions = [];
   List<Map<String, dynamic>> creditTransactions = [];
@@ -43,15 +44,7 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
     userId = user?.uid ?? '';
 
     _resetFilters();
-
-    if (!_dataLoaded) {
-      _loadTransactionsFromCache();
-    } else {
-      setState(() {
-        transactions = _cachedTransactions;
-        _separateTransactions();
-      });
-    }
+    _loadTransactions();
   }
 
   void _resetFilters() {
@@ -65,28 +58,45 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
     });
   }
 
+  Future<void> _loadTransactions() async {
+    await _loadTransactionsFromCache();
+    if (!_dataLoadedFromCache || _cachedTransactions.isEmpty) {
+      await _fetchTransactions();
+    } else {
+      setState(() {
+        transactions = _cachedTransactions;
+        _separateTransactions();
+      });
+    }
+  }
+
   Future<void> _loadTransactionsFromCache() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? cachedData = prefs.getString('cachedTransactions');
 
     if (cachedData != null) {
-      List<dynamic> cachedList = jsonDecode(cachedData);
-      print('Loaded transactions from cache: $cachedList');
-      setState(() {
-        _cachedTransactions = List<Map<String, dynamic>>.from(cachedList);
-        transactions = _cachedTransactions;
-        _dataLoaded = true;
-        _separateTransactions();
-      });
+      try {
+        List<dynamic> cachedList = jsonDecode(cachedData);
+        print('Loaded transactions from cache: $cachedList');
+        setState(() {
+          _cachedTransactions = List<Map<String, dynamic>>.from(cachedList);
+          _dataLoadedFromCache = true;
+        });
+      } catch (e) {
+        print('Error decoding cached transactions: $e');
+        _dataLoadedFromCache = true; // Mark as attempted
+        // Optionally clear invalid cache: await prefs.remove('cachedTransactions');
+      }
     } else {
       print('No cached data found.');
-      _fetchTransactions();
+      _dataLoadedFromCache = true; // Mark as attempted
     }
   }
 
   Future<void> _fetchTransactions() async {
     setState(() {
       load = true;
+      _errorMessage = null; // Clear any previous error
     });
     try {
       QuerySnapshot transactionSnapshot = await _firestore
@@ -97,56 +107,73 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
       List<Map<String, dynamic>> tempTransactions = [];
 
       for (var doc in transactionSnapshot.docs) {
-        String accountId = doc[textlink.accountId].toString();
-        String accountName = 'Unknown Account';
+        try {
+          String accountId = doc[textlink.accountId]?.toString() ?? '';
+          String accountName = 'Unknown Account';
 
-        DocumentSnapshot accountDoc =
-        await _firestore.collection('Account').doc(accountId).get();
-        if (accountDoc.exists) {
-          accountName = accountDoc['account_name'];
-        }
+          if (accountId.isNotEmpty) {
+            DocumentSnapshot accountDoc =
+            await _firestore.collection('Account').doc(accountId).get();
+            if (accountDoc.exists && accountDoc.data() != null) {
+              accountName = accountDoc['account_name']?.toString() ?? 'Unknown Account';
+            }
+          }
 
-        String transactionDateString = doc[textlink.transactionDate];
-        DateTime transactionDate =
-        DateFormat('d MMM yyyy').parse(transactionDateString);
+          String? transactionDateString = doc[textlink.transactionDate]?.toString();
+          DateTime? transactionDate;
+          if (transactionDateString != null) {
+            try {
+              transactionDate = DateFormat('d MMM yyyy').parse(transactionDateString);
+            } catch (e) {
+              print('Error parsing date: $transactionDateString - $e');
+              transactionDate = null; // Handle parsing error
+            }
+          }
 
-        bool isWithinDateRange = transactionDate.isAfter(_startDate) &&
-            transactionDate.isBefore(_endDate);
+          if (transactionDate != null) {
+            bool isWithinDateRange =
+                !transactionDate.isBefore(_startDate) &&
+                    !transactionDate.isAfter(_endDate);
 
-        // Apply filters based on transaction type
-        bool isTransactionTypeMatch = false;
+            bool isTransactionTypeMatch = false;
 
-        if (_transactionTypeFilter == 'All') {
-          isTransactionTypeMatch = true;
-        } else if (_transactionTypeFilter == 'Credit' &&
-            doc[textlink.transactionIsCredited] == true) {
-          isTransactionTypeMatch = true;
-        } else if (_transactionTypeFilter == 'Debit' &&
-            doc[textlink.transactionIsCredited] == false) {
-          isTransactionTypeMatch = true;
-        }
+            if (_transactionTypeFilter == 'All') {
+              isTransactionTypeMatch = true;
+            } else if (_transactionTypeFilter == 'Credit' &&
+                doc[textlink.transactionIsCredited] == true) {
+              isTransactionTypeMatch = true;
+            } else if (_transactionTypeFilter == 'Debit' &&
+                doc[textlink.transactionIsCredited] == false) {
+              isTransactionTypeMatch = true;
+            }
 
-        if (isWithinDateRange && isTransactionTypeMatch) {
-          tempTransactions.add({
-            'account': accountName,
-            'date': DateFormat('yyyy-MM-dd').format(transactionDate),
-            'amount': doc[textlink.transactionAmount].toString(),
-            'isCredit': doc[textlink.transactionIsCredited] ?? false,
-          });
+            if (isWithinDateRange && isTransactionTypeMatch) {
+              tempTransactions.add({
+                'account': accountName,
+                'date': DateFormat('yyyy-MM-dd').format(transactionDate),
+                'amount': doc[textlink.transactionAmount]?.toString() ?? '0.00',
+                'isCredit': doc[textlink.transactionIsCredited] ?? false,
+              });
+            }
+          }
+        } catch (e) {
+          print('Error processing document ${doc.id}: $e');
+          // Optionally handle individual document errors
         }
       }
 
       setState(() {
         load = false;
         transactions = tempTransactions;
-        _cachedTransactions = tempTransactions; // Cache the transactions
-        _dataLoaded = true;
+        _cachedTransactions = tempTransactions;
         _separateTransactions();
-        _saveTransactionsToCache(tempTransactions); // Save to cache
+        _saveTransactionsToCache(tempTransactions);
       });
     } catch (e) {
+      print('Error fetching transactions: $e');
       setState(() {
         load = false;
+        _errorMessage = 'Failed to load transactions. Please check your internet connection or try again later.';
       });
     }
   }
@@ -159,7 +186,7 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
   Future<void> _saveTransactionsToCache(List<Map<String, dynamic>> transactions) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String jsonString = jsonEncode(transactions);
-    bool success = await prefs.setString('cachedTransactions', jsonString); // Save data to cache
+    bool success = await prefs.setString('cachedTransactions', jsonString);
 
     if (success) {
       print('Data successfully saved to cache.');
@@ -299,11 +326,11 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
                   onPressed: () {
                     setState(() {
                       _transactionTypeFilter = tempTransactionType;
-                      _startDate = tempStartDate; // Store DateTime
-                      _endDate = tempEndDate; // Store DateTime
+                      _startDate = tempStartDate;
+                      _endDate = tempEndDate;
+                      transactions = [];
                     });
-
-                    _fetchTransactions(); // Fetch filtered transactions
+                    _fetchTransactions();
                     Navigator.pop(context);
                   },
                   child: Text('Apply Filters'),
@@ -378,7 +405,7 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
               Icons.filter_list,
               color: Colors.white,
             ),
-            onPressed: _showFilterDialog, // Trigger filter dialog
+            onPressed: _showFilterDialog,
           ),
           IconButton(
             icon: const Icon(
@@ -401,7 +428,6 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
           ),
         ],
       ),
-
       body: Column(
         children: [
           Container(
@@ -432,15 +458,29 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
               ],
             ),
           ),
-          load ? Column(
+          if (_errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                _errorMessage!,
+                style: TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          load
+              ? Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SizedBox(height: MediaQuery.of(context).size.height / 2.5,),
+              SizedBox(
+                height: MediaQuery.of(context).size.height / 2.5,
+              ),
               Center(child: CircularProgressIndicator()),
             ],
-          ):
-          Expanded(
-            child: ListView.builder(
+          )
+              : Expanded(
+            child: transactions.isEmpty && _errorMessage == null
+                ? Center(child: Text("No transactions available."))
+                : ListView.builder(
               itemCount: transactions.length,
               itemBuilder: (context, index) {
                 final txn = transactions[index];
@@ -456,7 +496,7 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
                       Expanded(
                         flex: 2,
                         child: Text(
-                          txn['date'],
+                          DateFormat('dd-MM-yyyy').format(DateTime.parse(txn['date'])),
                           style: TextStyle(fontSize: 14),
                         ),
                       ),

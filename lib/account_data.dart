@@ -30,6 +30,7 @@ class _AccountDataState extends State<AccountData>
   double totalDebit = 0.0;
   bool isLoading = true;
   bool showContent = false;
+  List<Map<String, dynamic>> transactions = [];
 
   @override
   void initState() {
@@ -321,7 +322,6 @@ class _AccountDataState extends State<AccountData>
                               leading: const Icon(Icons.edit),
                               title: const Text("Edit Account Detail"),
                               onTap: () {
-
                                 Navigator.pop(context);
                                 Navigator.pushReplacement(
                                   context,
