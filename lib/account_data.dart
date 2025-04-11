@@ -1,6 +1,11 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:new_ledger_1/Settings/settings.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'ADD/add_account.dart';
@@ -111,6 +116,210 @@ class _AccountDataState extends State<AccountData>
     }
   }
 
+  pw.Widget _summaryBox(String title, String value, PdfColor textColor) {
+    return pw.Container(
+      width: 160, // Fixed width for uniformity
+      padding: pw.EdgeInsets.all(6),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey400, width: 1),
+        borderRadius: pw.BorderRadius.circular(5),
+        color: PdfColors.grey200, // Light background
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.Text(
+            title,
+            style: pw.TextStyle(
+              fontSize: 12,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.black,
+            ),
+          ),
+          pw.SizedBox(height: 2), // Small gap
+          pw.Text(
+            value,
+            style: pw.TextStyle(
+              fontSize: 14,
+              fontWeight: pw.FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _generateStyledPDF() async {
+    final pdf = pw.Document();
+
+    // Load assets (replace with your actual asset paths)
+    final ByteData logoData = await rootBundle.load('assets/image/logo.png');
+    final Uint8List logoBytes = logoData.buffer.asUint8List();
+
+    QuerySnapshot transactionSnapshot = await FirebaseFirestore.instance
+        .collection(textlink.tbltransaction)
+        .where(textlink.transactionAccountId, isEqualTo: widget.id)
+        .get();
+
+    List<List<String>> transactionData = [
+      ["Date", "Amount", "Type"],
+    ];
+
+    double totalCredit = 0;
+    double totalDebit = 0;
+
+    for (var doc in transactionSnapshot.docs) {
+      String date = doc[textlink.transactionDate] ?? "Unknown Date";
+      double amount = double.parse(doc[textlink.transactionAmount].toString());
+      bool isCredit = doc[textlink.transactionIsCredited] ?? false;
+      String transactionType = isCredit ? "Credit" : "Debit";
+
+      if (isCredit) {
+        totalCredit += amount;
+      } else {
+        totalDebit += amount;
+      }
+
+      transactionData.add([date, amount.toStringAsFixed(2), transactionType]);
+    }
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        build: (pw.Context context) {
+          return [
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.start,
+              children: [
+                pw.Image(pw.MemoryImage(logoBytes), width: 50, height: 50),
+                pw.SizedBox(width: 10),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'The Ledger Book',
+                      style: pw.TextStyle(
+                        fontSize: 24,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.black,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    pw.Text(
+                      'Powered By Generation Next',
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.normal,
+                        color: PdfColors.grey,
+                      ),
+                    ),
+                    pw.Text(
+                      'For Account: ${widget.name}',
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.normal,
+                        color: PdfColors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 20),
+            // Title Section
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(
+                  "Transaction Summary",
+                  style: pw.TextStyle(
+                      fontSize: 18, fontWeight: pw.FontWeight.normal),
+                ),
+                pw.Divider(thickness: 1, color: PdfColors.grey400),
+                pw.SizedBox(height: 10),
+              ],
+            ),
+
+            // Summary Section
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                _summaryBox("Total Credit", totalCredit.toStringAsFixed(2),
+                    PdfColors.green800), // Pass the base color
+                _summaryBox(
+                    "Total Debit", totalDebit.toStringAsFixed(2), PdfColors.red800), // Pass the base color
+                _summaryBox(
+                  "Net Balance",
+                  (totalCredit - totalDebit).toStringAsFixed(2),
+                  (totalCredit - totalDebit) >= 0
+                      ? PdfColors.green800 // Pass the base color
+                      : PdfColors.red800, // Pass the base color
+                ),
+              ],
+            ),
+
+            pw.SizedBox(height: 20),
+
+            pw.Text("Transaction Details:",
+                style: pw.TextStyle(
+                    fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 10),
+
+            // Transaction Table
+            if (transactionData.length > 1)
+              pw.Table.fromTextArray(
+                headers: transactionData.first,
+                data: transactionData.sublist(1),
+                border: pw.TableBorder.all(
+                  color: PdfColors.grey50, // Light grey border
+                  width: 0.5,
+                ),
+                headerDecoration: pw.BoxDecoration(
+                  color: PdfColors.blueGrey, // Dark Blue Header Background
+                ),
+                headerStyle: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white, // White Text in Header
+                ),
+                cellStyle: const pw.TextStyle(fontSize: 10),
+                columnWidths: {
+                  0: const pw.FixedColumnWidth(80), // Date column
+                  1: const pw.FixedColumnWidth(80), // Amount column
+                  2: const pw.FixedColumnWidth(60), // Type column
+                },
+                cellAlignment: pw.Alignment.centerLeft,
+                cellAlignments: {
+                  1: pw.Alignment.centerRight, // Right-align Amount column
+                  2: pw.Alignment.center, // Center-align Type column
+                },
+                rowDecoration: const pw.BoxDecoration(
+                  border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey50)),
+                ),
+              )
+            else
+              pw.Center(child: pw.Text("No transactions available.")),
+          ];
+        },
+      ),
+    );
+
+    // Display PDF preview
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+    );
+
+    // To save the PDF to a file (optional):
+    final directory = await getApplicationDocumentsDirectory();
+    final filePath = "${directory.path}/account_statement_${widget.name}.pdf";
+    final file = File(filePath);
+    await file.writeAsBytes(await pdf.save());
+    OpenFilex.open(filePath);
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -166,92 +375,7 @@ class _AccountDataState extends State<AccountData>
                             ListTile(
                               leading: const Icon(Icons.download),
                               title: const Text("Download Transaction Pdf"),
-                              onTap: () async {
-                                final pdf = pw.Document();
-
-                                QuerySnapshot transactionSnapshot =
-                                    await FirebaseFirestore.instance
-                                        .collection(textlink.tbltransaction)
-                                        .where(textlink.transactionAccountId,
-                                            isEqualTo: widget.id)
-                                        .get();
-
-                                List<pw.Widget> transactionWidgets = [];
-
-                                for (var doc in transactionSnapshot.docs) {
-                                  String date = doc[textlink.transactionDate] ??
-                                      "Unknown Date";
-                                  double amount = double.parse(
-                                      doc[textlink.transactionAmount]
-                                          .toString());
-                                  bool isCredit =
-                                      doc[textlink.transactionIsCredited] ??
-                                          false;
-                                  String transactionType =
-                                      isCredit ? "Credit" : "Debit";
-
-                                  transactionWidgets.add(
-                                    pw.Padding(
-                                      padding: const pw.EdgeInsets.symmetric(
-                                          vertical: 4),
-                                      child: pw.Row(
-                                        mainAxisAlignment:
-                                            pw.MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          pw.Text(date,
-                                              style:
-                                                  pw.TextStyle(fontSize: 12)),
-                                          pw.Text("$amount",
-                                              style:
-                                                  pw.TextStyle(fontSize: 12)),
-                                          pw.Text(transactionType,
-                                              style:
-                                                  pw.TextStyle(fontSize: 12)),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                }
-
-                                pdf.addPage(
-                                  pw.Page(
-                                    pageFormat: PdfPageFormat.a4,
-                                    build: (pw.Context context) {
-                                      return pw.Column(
-                                        crossAxisAlignment:
-                                            pw.CrossAxisAlignment.start,
-                                        children: [
-                                          pw.Text(
-                                              "Account Name: ${widget.name}",
-                                              style: pw.TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight:
-                                                      pw.FontWeight.bold)),
-                                          pw.Text(
-                                              "Account Balance: ${accountBalance.toStringAsFixed(2)}",
-                                              style:
-                                                  pw.TextStyle(fontSize: 14)),
-                                          pw.SizedBox(height: 10),
-                                          pw.Divider(),
-                                          pw.Text("Transactions:",
-                                              style: pw.TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight:
-                                                      pw.FontWeight.bold)),
-                                          pw.SizedBox(height: 10),
-                                          ...transactionWidgets, // Display transactions
-                                        ],
-                                      );
-                                    },
-                                  ),
-                                );
-
-                                // Display PDF preview
-                                await Printing.layoutPdf(
-                                  onLayout: (PdfPageFormat format) async =>
-                                      pdf.save(),
-                                );
-                              },
+                              onTap:_generateStyledPDF,
                             ),
                             ListTile(
                               leading: const Icon(Icons.clear_outlined),

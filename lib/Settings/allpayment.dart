@@ -1,15 +1,26 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:new_ledger_1/Settings/settings.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AllPaymentPage extends StatefulWidget {
+  final String? id;
+  final String? name;
+
+  const AllPaymentPage({super.key, this.id, this.name});
+
   @override
   _AllPaymentPageState createState() => _AllPaymentPageState();
 }
@@ -343,50 +354,170 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
     );
   }
 
-  Future<void> _generatePDF() async {
+  pw.Widget _summaryBox(String title, String value, PdfColor textColor) {
+    return pw.Container(
+      width: 160,
+      padding: pw.EdgeInsets.all(6),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey400, width: 1),
+        borderRadius: pw.BorderRadius.circular(5),
+        color: PdfColors.grey200,
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.Text(
+            title,
+            style: pw.TextStyle(
+              fontSize: 12,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.black,
+            ),
+          ),
+          pw.SizedBox(height: 2),
+          pw.Text(
+            value,
+            style: pw.TextStyle(
+              fontSize: 14,
+              fontWeight: pw.FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _generateStyledPDF() async {
     final pdf = pw.Document();
 
+    // Load logo image
+    final ByteData logoData = await rootBundle.load('assets/image/logo.png');
+    final Uint8List logoBytes = logoData.buffer.asUint8List();
+
+    // Build data from already loaded transactions
+    List<List<String>> transactionData = [
+      ["Date", "Account", "Amount", "Type"],
+    ];
+
+    double totalCredit = 0;
+    double totalDebit = 0;
+
+    for (var txn in transactions) {
+      final rawDate = txn['date'];
+      String dateFormatted = "Unknown";
+      try {
+        if (rawDate != null) {
+          final parsedDate = DateTime.parse(rawDate);
+          dateFormatted = DateFormat('dd-MM-yyyy').format(parsedDate);
+        }
+      } catch (e) {
+        print('Date formatting error: $e');
+      }
+      final account = txn['account'] ?? "N/A";
+      final amount = double.tryParse(txn['amount'] ?? "0") ?? 0.0;
+      final isCredit = txn['isCredit'] == true;
+      final type = isCredit ? "Credit" : "Debit";
+
+      if (isCredit) {
+        totalCredit += amount;
+      } else {
+        totalDebit += amount;
+      }
+
+      transactionData.add([
+        dateFormatted,
+        account,
+        amount.toStringAsFixed(2),
+        type,
+      ]);
+    }
+
     pdf.addPage(
-      pw.Page(
-        build: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text(
-              'All Transactions',
-              style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 10),
-            pw.Table(
-              border: pw.TableBorder.all(),
-              children: [
-                pw.TableRow(
-                  children: [
-                    pw.Text('Account'),
-                    pw.Text('Date'),
-                    pw.Text('Credit'),
-                    pw.Text('Debit'),
-                  ],
-                ),
-                ...transactions.map(
-                      (txn) => pw.TableRow(
-                    children: [
-                      pw.Text(txn['account']),
-                      pw.Text(txn['date']),
-                      pw.Text(txn['isCredit'] ? txn['amount'] : ''),
-                      pw.Text(!txn['isCredit'] ? txn['amount'] : ''),
-                    ],
-                  ),
-                )
-              ],
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        build: (context) => [
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Image(pw.MemoryImage(logoBytes), width: 50, height: 50),
+              pw.SizedBox(width: 10),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('The Ledger Book',
+                      style: pw.TextStyle(
+                          fontSize: 24,
+                          fontWeight: pw.FontWeight.bold,
+                          letterSpacing: 1.5)),
+                  pw.Text('Powered By Generation Next',
+                      style: pw.TextStyle(fontSize: 14, color: PdfColors.grey)),
+                  pw.Text('For All Accounts',
+                      style: pw.TextStyle(fontSize: 14, color: PdfColors.grey)),
+                ],
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 20),
+
+          pw.Text('Transaction Summary',
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+          pw.Divider(color: PdfColors.grey400),
+          pw.SizedBox(height: 10),
+
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              _summaryBox("Total Credit", totalCredit.toStringAsFixed(2), PdfColors.green800),
+              _summaryBox("Total Debit", totalDebit.toStringAsFixed(2), PdfColors.red800),
+              _summaryBox(
+                "Net Balance",
+                (totalCredit - totalDebit).toStringAsFixed(2),
+                (totalCredit - totalDebit) >= 0 ? PdfColors.green800 : PdfColors.red800,
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 20),
+
+          pw.Text('Transaction Details:',
+              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 10),
+          if (transactionData.length > 1)
+            pw.Table.fromTextArray(
+              headers: transactionData.first,
+              data: transactionData.sublist(1),
+              border: pw.TableBorder.all(color: PdfColors.grey50, width: 0.5),
+              headerDecoration: pw.BoxDecoration(color: PdfColors.blueGrey),
+              headerStyle: pw.TextStyle(
+                  fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+              cellStyle: const pw.TextStyle(fontSize: 10),
+              columnWidths: {
+                0: const pw.FixedColumnWidth(100),
+                1: const pw.FixedColumnWidth(100),
+                2: const pw.FixedColumnWidth(80),
+                3: const pw.FixedColumnWidth(60),
+              },
+              cellAlignments: {
+                0: pw.Alignment.centerLeft,
+                1: pw.Alignment.centerLeft,
+                2: pw.Alignment.centerRight,
+                3: pw.Alignment.center,
+              },
             )
-          ],
-        ),
+          else
+            pw.Center(child: pw.Text("No transactions available.")),
+        ],
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (format) async => pdf.save(),
-    );
+    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+
+    final directory = await getApplicationDocumentsDirectory();
+    final filePath = "${directory.path}/all_account_statement.pdf";
+    final file = File(filePath);
+    await file.writeAsBytes(await pdf.save());
+    OpenFilex.open(filePath);
   }
 
   @override
@@ -412,7 +543,7 @@ class _AllPaymentPageState extends State<AllPaymentPage> {
               Icons.picture_as_pdf,
               color: Colors.white,
             ),
-            onPressed: _generatePDF,
+            onPressed: _generateStyledPDF,
           ),
           IconButton(
             icon: const Icon(
